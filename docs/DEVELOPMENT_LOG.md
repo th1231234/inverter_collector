@@ -350,7 +350,59 @@ https://github.com/th1231234/inverter_collector    （main 分支，Public）
 
 ---
 
-## 12. 问题汇总
+## 12. 追加改造：上报通道 UDP / TCP 双实现
+
+### 12.1 起因：文档里的术语矛盾
+
+测验文档「3.2 Wi-Fi 网络模块」中：
+
+- 网络参数写的是「**TCP**服务器IP：192.168.1.200」「**TCP**端口：8080」
+- 功能要求写的是「通过 **UDP** 发送 JSON 格式数据」「**UDP** 发送数据格式为 JSON」
+
+同一节内协议名不一致。两种解读都可能，若只实现一种，验收时存在被判定「未按需求」的风险。
+
+### 12.2 决策：默认 UDP，TCP 作为可切换通道
+
+| 方案 | 符合文档 | 风险 |
+|---|---|---|
+| 只做 UDP | 功能要求（写了两次）✅ | 导师若按标题要 TCP 则无法演示 ⚠️ |
+| 只做 TCP | 标题（写了一次）✅ | 按功能要求验收直接丢分 ❌ |
+| **UDP 默认 + TCP 可切换** | 两者均可现场演示 ✅✅ | 工作量增加约 50 行 |
+
+选择第三种：把不确定性用配置项消化掉，验收现场按导师要求切换，不改代码。
+
+### 12.3 具体改动
+
+| 文件 | 改动 |
+|---|---|
+| `main/Kconfig.projbuild` | 新增。定义 `WIFI_SSID`、`WIFI_PASSWORD`、`REPORT_PROTO`（UDP/TCP 二选一）、`REPORT_TARGET_IP`、`REPORT_TARGET_PORT` |
+| `main/tcp.c` / `tcp.h` | 新增。TCP 客户端：非阻塞 connect + `select` 限时 3 秒、`SO_SNDTIMEO` 限制发送阻塞、发送失败自动关闭连接 |
+| `main/udp.c` | 目标 IP/端口改为读取 `CONFIG_REPORT_TARGET_*` |
+| `main/wifi.c` | SSID/密码改为读取 `CONFIG_WIFI_*`，源码不再硬编码凭据 |
+| `main/inverter_collector.c` | `#if CONFIG_REPORT_PROTO_TCP` 条件编译切换发送函数；检测 Wi-Fi 由断到通时调用 `tcp_client_close()` 重建连接 |
+| `main/CMakeLists.txt` | 加入 `tcp.c` |
+| `tools/tcp_receiver.py` | 新增。`listen`/`accept` 接收，按 `\n` 切分消息 |
+| `sdkconfig.defaults` | 新增。配置模板（占位符），保证克隆后可编译 |
+| `.gitignore` | 加入 `sdkconfig`，真实凭据不入库 |
+
+### 12.4 TCP 相对 UDP 增加的三个处理点
+
+1. **连接超时必须可控**。直接阻塞 `connect()` 在目标不可达时会被 lwIP 重传 SYN 拖住十几秒，把整个采集任务卡死。改用「非阻塞 connect + `select` 等待 3 秒 + `getsockopt(SO_ERROR)` 判定结果」。
+2. **Wi-Fi 掉线后连接变「半死」**。TCP 连接状态在 Wi-Fi 重连后不会自动恢复，`send` 可能返回成功但数据不出去。处理方式：采集任务每周期比对 Wi-Fi 状态，检测到「断 → 通」时主动 `close` socket，下次发送时重建。
+3. **TCP 是字节流，没有消息边界**。UDP 一包即一条消息；TCP 连续发送可能粘包，两条 JSON 挤在一起导致解析失败。处理方式：每条末尾追加 `\n`，接收端按行切分。
+
+### 12.5 验证
+
+| 项 | 结果 |
+|---|---|
+| UDP 模式编译 | 通过，0 error 0 warning |
+| TCP 模式编译 | 通过，0 error 0 warning；镜像 0xccaa0 字节，分区剩余 20% |
+| `idf.py reconfigure` 后配置保留 | 确认保留手工修改值，menuconfig 工作流可靠 |
+| 源码明文凭据 | 已清除，源码中不再出现任何 Wi-Fi 密码字符串（改为 Kconfig 配置项） |
+
+---
+
+## 13. 问题汇总
 
 | # | 现象 | 根因 | 解决 |
 |---|---|---|---|
@@ -369,7 +421,7 @@ https://github.com/th1231234/inverter_collector    （main 分支，Public）
 
 ---
 
-## 13. 关键参数汇总
+## 14. 关键参数汇总
 
 | 类别 | 参数 | 值 |
 |---|---|---|
@@ -380,12 +432,13 @@ https://github.com/th1231234/inverter_collector    （main 分支，Public）
 | 换算 | 系数 | 电压 ÷10.0，电流 ÷100.0，功率 ×1 |
 | 任务 | 周期/栈 | 5000 ms / 4096 |
 | 上报 | 门控 | 连续成功 3 次后启动 |
+| 网络 | 上报协议 | UDP（默认）/ TCP，menuconfig 切换 |
 | 网络 | 自测 | SSID `LAPTOP`，目标 `192.168.137.1:8080` |
 | 网络 | 验收 | 公司 Wi-Fi，目标 `192.168.1.200:8080` |
 
 ---
 
-## 14. 复盘要点
+## 15. 复盘要点
 
 1. **分层验证**：先证明环境没问题（hello_world），再证明驱动没问题（能烧录），最后才写业务代码。每一步只引入一个新变量。
 2. **交叉验证**：CRC 用标准向量和独立计算双重确认，硬件未通就能确定软件正确。

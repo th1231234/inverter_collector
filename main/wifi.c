@@ -15,11 +15,14 @@
 static const char *TAG = "WIFI";
 
 /* ==================================================================
- * 网络参数：电脑热点（自测用）
- * 验收时改为公司路由器：SSID / 密码由导师提供
+ * 网络参数（由 menuconfig 填写，见 Kconfig.projbuild）
+ *   Idf Menuconfig → Inverter Collector → Wi-Fi 参数
+ * ------------------------------------------------------------------
+ * 自测：电脑热点；验收：公司路由器（SSID / 密码由导师提供）
+ * 代码中不硬编码任何真实凭据，sdkconfig 已加入 .gitignore
  * ================================================================== */
-#define WIFI_SSID       "LAPTOP"
-#define WIFI_PASSWORD   "12345678"
+#define WIFI_SSID       CONFIG_WIFI_SSID
+#define WIFI_PASSWORD   CONFIG_WIFI_PASSWORD
 
 /* 断线重连：不限次数，直到连上为止 */
 #define WIFI_RETRY_FOREVER   0

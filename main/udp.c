@@ -10,13 +10,14 @@
 static const char *TAG = "UDP";
 
 /* ==================================================================
- * 上报目标
+ * 上报目标（由 menuconfig 填写，见 Kconfig.projbuild）
+ *   Idf Menuconfig → Inverter Collector → 上报通道
  * ------------------------------------------------------------------
- * 自测（电脑热点）：目标 IP 是热点的网关地址，通常为 192.168.137.1
- * 验收（公司网络）：改为 192.168.1.200
+ * 自测（电脑热点）：目标 IP 填热点网关，通常为 192.168.137.1
+ * 验收（公司网络）：填 192.168.1.200
  * ================================================================== */
-#define UDP_TARGET_IP       "192.168.137.1"
-#define UDP_TARGET_PORT     8080
+#define UDP_TARGET_IP       CONFIG_REPORT_TARGET_IP
+#define UDP_TARGET_PORT     CONFIG_REPORT_TARGET_PORT
 
 static int s_sock = -1;
 static struct sockaddr_in s_dest;

@@ -1,0 +1,49 @@
+menu "Inverter Collector"
+
+    menu "Wi-Fi 参数"
+        config WIFI_SSID
+            string "路由器 SSID"
+            default "YOUR_SSID"
+            help
+                要连接的 Wi-Fi 名称。验收时填公司路由器名称（由导师提供）。
+
+        config WIFI_PASSWORD
+            string "路由器密码"
+            default "YOUR_PASSWORD"
+            help
+                要连接的 Wi-Fi 密码。验收时填公司路由器密码（由导师提供）。
+    endmenu
+
+    menu "上报通道"
+        choice REPORT_PROTO
+            prompt "上报协议"
+            default REPORT_PROTO_UDP
+            help
+                UDP：无连接，一次 sendto 对应一条消息，接收端无需 accept。
+                     与测验文档「通过 UDP 发送 JSON 格式数据」一致，为默认选项。
+                TCP：需先 connect 建立连接，接收端需 listen/accept。
+                     与文档标题「TCP服务器IP」一致。注意 TCP 是字节流，
+                     消息之间以换行符 '\n' 分隔，接收端需按行切分。
+
+            config REPORT_PROTO_UDP
+                bool "UDP（默认，符合功能要求）"
+
+            config REPORT_PROTO_TCP
+                bool "TCP（对应文档标题中的 TCP服务器IP）"
+        endchoice
+
+        config REPORT_TARGET_IP
+            string "上报目标 IP"
+            default "192.168.1.200"
+            help
+                接收端所在电脑的 IP。自测可用电脑热点网关（通常 192.168.137.1）。
+
+        config REPORT_TARGET_PORT
+            int "上报目标端口"
+            range 1 65535
+            default 8080
+            help
+                接收端监听的端口，默认 8080。
+    endmenu
+
+endmenu

@@ -7,8 +7,16 @@
 #include "esp_log.h"
 
 #include "modbus.h"
-#include "udp.h"
 #include "wifi.h"
+
+/* 上报通道二选一，由 menuconfig 决定（Kconfig.projbuild → 上报通道） */
+#if CONFIG_REPORT_PROTO_TCP
+#include "tcp.h"
+#define REPORT_CHANNEL_NAME   "TCP"
+#else
+#include "udp.h"
+#define REPORT_CHANNEL_NAME   "UDP"
+#endif
 
 static const char *TAG = "MAIN";
 
@@ -42,8 +50,25 @@ static void collector_task(void *arg)
     uint32_t err_cnt = 0;
     int consecutive_ok = 0;      /* 连续成功次数 */
     bool reporting = false;      /* 是否已启动上报 */
+#if CONFIG_REPORT_PROTO_TCP
+    bool prev_wifi_ok = false;   /* 上一周期的 Wi-Fi 状态，用于检测重连 */
+#endif
 
     while (1) {
+        /* --- Wi-Fi 状态变化检测 -------------------------------------
+         * UDP 无连接，掉线后直接续发即可；
+         * TCP 有连接状态，掉线后 socket 会变成「半死」，必须主动关闭，
+         * 下个周期发送时再重建，否则 send 会一直失败。
+         * ------------------------------------------------------------ */
+        bool wifi_ok = wifi_is_connected();
+#if CONFIG_REPORT_PROTO_TCP
+        if (wifi_ok && !prev_wifi_ok) {
+            ESP_LOGI(TAG, "Wi-Fi (re)connected, reset TCP link");
+            tcp_client_close();
+        }
+        prev_wifi_ok = wifi_ok;
+#endif
+
         bool ok = modbus_read_registers(REG_BASE, REG_COUNT, regs);
 
         if (ok) {
@@ -67,14 +92,18 @@ static void collector_task(void *arg)
             /* 连续成功 3 次后，才启动上报 */
             if (!reporting && consecutive_ok >= REPORT_START_THRESHOLD) {
                 reporting = true;
-                ESP_LOGI(TAG, "%d consecutive reads OK, start UDP reporting",
-                         REPORT_START_THRESHOLD);
+                ESP_LOGI(TAG, "%d consecutive reads OK, start %s reporting",
+                         REPORT_START_THRESHOLD, REPORT_CHANNEL_NAME);
             }
 
             /* 上报：Wi-Fi 未连接时跳过，不影响采集 */
             if (reporting) {
-                if (wifi_is_connected()) {
+                if (wifi_ok) {
+#if CONFIG_REPORT_PROTO_TCP
+                    tcp_send_json(voltage, current, power);
+#else
                     udp_send_json(voltage, current, power);
+#endif
                 } else {
                     ESP_LOGW(TAG, "Wi-Fi not connected, skip this report");
                 }
@@ -102,8 +131,14 @@ void app_main(void)
     /* 1. Wi-Fi：连接路由器并自动重连 */
     wifi_init_sta();
 
-    /* 2. UDP：创建 socket，指向上报服务器 */
+    /* 2. 上报通道：UDP 直接建 socket；TCP 首次发送时建立连接 */
+#if CONFIG_REPORT_PROTO_TCP
+    tcp_client_init();
+#else
     udp_client_init();
+#endif
+    ESP_LOGI(TAG, "report channel: %s -> %s:%d",
+             REPORT_CHANNEL_NAME, CONFIG_REPORT_TARGET_IP, CONFIG_REPORT_TARGET_PORT);
 
     /* 3. Modbus：初始化采集串口 */
     modbus_init();
