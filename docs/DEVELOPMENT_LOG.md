@@ -456,6 +456,41 @@ I wifi:connected with LAPTOP, aid = 7, channel 11, rssi: -29
 
 `201` 为 `WIFI_REASON_NO_AP_FOUND`（扫描未发现目标 AP），出现在上电初期热点/信道尚未稳定时。自动重连机制在 2.5 秒内自愈，`rssi -29` 说明链路质量良好，无需额外处理。
 
+### 12.8 TCP 通道上板验证
+
+将 `menuconfig` 切至 TCP、Flash size 改为 4MB 后烧录实测。
+
+烧录参数确认 4MB 已生效：
+
+```
+esptool.py --chip esp32c3 -p COM8 -b 460800 --before=default_reset --after=hard_reset
+  write_flash --flash_mode dio --flash_freq 80m --flash_size 4MB ...
+```
+
+接收端（`0.0.0.0:8080`，TCP）观测到：
+
+```
+[57.6s][TCP ] 连接来自 192.168.137.252:62781
+[57.6s][TCP ] #1 {"voltage":350.0,"current":5.00,"power":1750}
+```
+
+结论：TCP 连接建立、发送、数据完整性均正常，JSON 与 UDP 通道输出一致。
+
+**过程中遇到的问题（4 线烧录线的固有限制）**
+
+| 现象 | 原因 | 处理 |
+|---|---|---|
+| `Failed to connect to ESP32-C3: No serial data received` | 4 线烧录线只接了 VCC/GND/TX/RX，没有 DTR/RTS，esptool 无法自动复位进下载模式 | 手动按住 BOOT → 点 RST → 松开 BOOT |
+| 烧录成功但程序不运行，接收端无连接 | `Hard resetting via RTS pin` 依赖 RTS，实际未接线，芯片仍停在下载模式 | 烧录后手动按一次 RST |
+| 复位后仍为 `boot:0x4 (DOWNLOAD)` | 复位时 BOOT（GPIO9）仍被按住 | 确认 BOOT 完全弹起后再按 RST |
+
+正确与错误的启动标志：
+
+```
+rst:0x1 (POWERON),boot:0x8 (SPI_FAST_FLASH_BOOT)   ← 正常运行
+rst:0x1 (POWERON),boot:0x4 (DOWNLOAD(USB/UART0/1)) ← 停在下载模式
+```
+
 ---
 
 ## 13. 问题汇总
