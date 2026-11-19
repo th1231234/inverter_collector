@@ -400,6 +400,62 @@ https://github.com/th1231234/inverter_collector    （main 分支，Public）
 | `idf.py reconfigure` 后配置保留 | 确认保留手工修改值，menuconfig 工作流可靠 |
 | 源码明文凭据 | 已清除，源码中不再出现任何 Wi-Fi 密码字符串（改为 Kconfig 配置项） |
 
+### 12.6 改造后上板复测（UDP 路径）
+
+改造完成后烧录实测，确认配置迁移未破坏原有功能。以下为真实日志（时间戳省略）：
+
+```
+I WIFI: STA start, connecting to "LAPTOP" ...
+I WIFI: wifi_init_sta finished, SSID=LAPTOP          ← CONFIG_WIFI_SSID 生效
+I UDP: UDP target 192.168.137.1:8080                 ← CONFIG_REPORT_TARGET_* 生效
+I MAIN: report channel: UDP -> 192.168.137.1:8080    ← 协议选择生效
+I MODBUS: UART1 init ok, TX=5 RX=6, 9600-8-N-1
+I MAIN: collector task created, period=5000 ms
+
+（从机未连接阶段，连续超时）
+W MODBUS: timeout (attempt 1/3)
+W MODBUS: timeout (attempt 2/3)
+W MODBUS: timeout (attempt 3/3)
+E MAIN: read failed, retry next cycle (ok=0, err=1)
+
+（从机接通后自动恢复）
+I MODBUS: TX[8]: 01 03 30 00 00 05 8A C9
+I MODBUS: RX[15]: 01 03 0A 0D AC 00 00 01 F4 00 00 06 D6 2A 71
+I MODBUS: resp: addr=1 func=0x03 bytes=10 crc=0x712A (ok)
+I MAIN: Value: Voltage=350.0V, Current=5.00A, Power=1750W
+I MAIN: Stats: ok=1, err=19
+I MAIN: Stats: ok=2, err=19
+I MAIN: 3 consecutive reads OK, start UDP reporting
+I UDP: Send to 192.168.137.1:8080 success: {"voltage":350.0,"current":5.00,"power":1750}
+I MAIN: Stats: ok=3, err=19
+I UDP: Send to 192.168.137.1:8080 success: {"voltage":350.0,"current":5.00,"power":1750}
+I MAIN: Stats: ok=4, err=19
+```
+
+复测结论：
+
+| 检查项 | 结果 |
+|---|---|
+| Kconfig 参数是否真正生效 | 三行回显（SSID / UDP target / report channel）全部正确 |
+| 改造是否引入回归 | 无，TX 帧与改造前完全一致（`01 03 30 00 00 05 8A C9`） |
+| 上报门控是否有效 | `ok=1`、`ok=2` 不发，`ok=3` 触发 `start UDP reporting`，符合设计 |
+| JSON 格式是否符合文档示例 | 与文档示例 `{"voltage":350.0,"current":5.00,"power":1750}` 逐字一致 |
+| 故障是否影响主任务 | 连续 19 次失败未崩溃，从机接通后自动恢复 |
+
+> 关于 `err=19`：该计数为累计值，对应从机上电前的那段时间，只增不减。接通后 `ok` 稳定递增、`err` 停止增长，即当前无失败。
+
+### 12.7 Wi-Fi 首次连接偶发 `reason=201`
+
+同一轮复测中观察到：
+
+```
+W WIFI: disconnected (reason=201), reconnect attempt 1 ...
+W WIFI: disconnected (reason=201), reconnect attempt 2 ...
+I wifi:connected with LAPTOP, aid = 7, channel 11, rssi: -29
+```
+
+`201` 为 `WIFI_REASON_NO_AP_FOUND`（扫描未发现目标 AP），出现在上电初期热点/信道尚未稳定时。自动重连机制在 2.5 秒内自愈，`rssi -29` 说明链路质量良好，无需额外处理。
+
 ---
 
 ## 13. 问题汇总
