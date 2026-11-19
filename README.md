@@ -109,8 +109,8 @@ idf.py -p COM8 monitor        # 退出：Ctrl + ]
 1. 打开 Modbus Slave，`Connection → Connect`
 2. 连接类型 **Serial Port**，端口选 USB 转 485 对应的 COM 口
 3. 参数 **9600 / 8 / None / 1 / RTU**
-4. `Setup → Slave Definition`：Slave ID = `1`，Function = `03`
-5. 写入预设值：电压 `5`、电流 `100`、功率 `0`
+4. `Setup → Slave Definition`：Address mode 选 **Hex**，Address 填 `3000`，Quantity 填 `10`；Slave ID = `1`，Function = `03`
+5. 双击寄存器格子写入预设值：`3000` → `3500`、`3002` → `500`、`3004` → `1750`
 
 ### 6.2 上报接收侧（电脑）
 
@@ -132,16 +132,18 @@ python udp_receiver.py
 ```
 I (547)  MODBUS: UART1 init ok, TX=5 RX=6, 9600-8-N-1
 I (7657) WIFI: Wi-Fi connected, IP: 192.168.137.252
-I (10837) MODBUS: TX[8]: 01 03 4E 20 00 03 13 29
-I (10807) MODBUS: RX[11]: 01 03 06 00 05 00 64 00 00 AC AA
-I (10807) MODBUS: resp: addr=1 func=0x03 bytes=6 crc=0xAAAC (ok)
-I (10807) MODBUS:   reg[0x4E20] = 0x0005 (5)
-I (10807) MODBUS:   reg[0x4E21] = 0x0064 (100)
-I (10807) MODBUS:   reg[0x4E22] = 0x0000 (0)
-I (10807) MAIN: Raw: [20000]=0x0005 [20001]=0x0064 [20002]=0x0000
-I (10807) MAIN: Value: Voltage=0.5V, Current=1.00A, Power=0W
-I (10807) MAIN: 3 consecutive reads OK, start UDP reporting
-I (10807) UDP: Send to 192.168.137.1:8080 success: {"voltage":0.5,"current":1.00,"power":0}
+I (10837) MODBUS: TX[8]: 01 03 30 00 00 05 8A C9
+I (10847) MODBUS: RX[15]: 01 03 0A 0D AC 00 00 01 F4 00 00 06 D6 2A 71
+I (10847) MODBUS: resp: addr=1 func=0x03 bytes=10 crc=0x712A (ok)
+I (10847) MODBUS:   reg[0x3000] = 0x0DAC (3500)
+I (10847) MODBUS:   reg[0x3001] = 0x0000 (0)
+I (10847) MODBUS:   reg[0x3002] = 0x01F4 (500)
+I (10847) MODBUS:   reg[0x3003] = 0x0000 (0)
+I (10847) MODBUS:   reg[0x3004] = 0x06D6 (1750)
+I (10847) MAIN: Raw: [0x3000]=0x0DAC [0x3002]=0x01F4 [0x3004]=0x06D6
+I (10847) MAIN: Value: Voltage=350.0V, Current=5.00A, Power=1750W
+I (10847) MAIN: 3 consecutive reads OK, start UDP reporting
+I (10847) UDP: Send to 192.168.137.1:8080 success: {"voltage":350.0,"current":5.00,"power":1750}
 I (15947) MAIN: Stats: ok=4, err=0
 ```
 
@@ -149,13 +151,22 @@ I (15947) MAIN: Stats: ok=4, err=0
 
 ## 8. 参数配置（自测 ↔ 验收切换清单）
 
-程序当前为**本地自测配置**，验收前需要修改以下三处：
+程序当前状态：**寄存器映射已切换为逆变器正式映射**，Wi-Fi 与 UDP 目标仍是本地自测配置。验收前只需修改以下两处：
 
-| 序号 | 文件 | 宏 | 自测值 | 验收值 |
+| 序号 | 文件 | 宏 | 当前（自测） | 验收值 |
 |---|---|---|---|---|
 | 1 | `main/wifi.c` | `WIFI_SSID` / `WIFI_PASSWORD` | `LAPTOP` / `12345678` | 公司路由器（由导师提供） |
 | 2 | `main/udp.c` | `UDP_TARGET_IP` | `192.168.137.1` | `192.168.1.200` |
-| 3 | `main/inverter_collector.c` | `REG_BASE` / `REG_COUNT` / `IDX_*` | `20000` / `3` / `0,1,2` | `0x3000` / `5` / `0,2,4` |
+
+寄存器映射已按测验要求配置（`main/inverter_collector.c`）：
+
+| 宏 | 值 | 说明 |
+|---|---|---|
+| `REG_BASE` | `0x3000` | 起始地址 |
+| `REG_COUNT` | `5` | 一次连续读 5 个（覆盖 0x3000~0x3004） |
+| `IDX_VOLTAGE` | `0` | 电压位于 0x3000 |
+| `IDX_CURRENT` | `2` | 电流位于 0x3002 |
+| `IDX_POWER` | `4` | 功率位于 0x3004 |
 
 > 说明：逆变器寄存器为 `0x3000`（电压）、`0x3002`（电流）、`0x3004`（功率），**步长为 2**，因此验收配置需一次读取 5 个寄存器再按偏移 `0/2/4` 取值。
 

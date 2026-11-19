@@ -13,23 +13,21 @@
 static const char *TAG = "MAIN";
 
 /* ==================================================================
- * 从机寄存器映射（Modbus Slave 截图：ID=1, F=03，起始 20000）
- *  20000 电压 = 5    → 0.5V   (÷10.0)
- *  20001 电流 = 100  → 1.00A  (÷100.0)
- *  20002 功率 = 0
+ * 从机寄存器映射（逆变器正式映射，Modbus Slave 需按 Hex 地址 3000 配置）
+ *  0x3000 电网电压  = 0x0DAC = 3500 → 350.0V  (÷10.0)
+ *  0x3001 未使用
+ *  0x3002 电网电流  = 0x01F4 = 500  → 5.00A   (÷100.0)
+ *  0x3003 未使用
+ *  0x3004 瞬时功率  = 0x06D6 = 1750 → 1750W   (÷1)
  * ------------------------------------------------------------------
- * 若改为测验文档的逆变器映射，只需改这组宏：
- *   #define REG_BASE     0x3000
- *   #define REG_COUNT    5      // 0x3000~0x3004
- *   #define IDX_VOLTAGE  0      // 0x3000
- *   #define IDX_CURRENT  2      // 0x3002
- *   #define IDX_POWER    4      // 0x3004
+ * 注意：三个参数地址步长为 2，因此一次连续读 5 个寄存器，
+ *       再按偏移 0 / 2 / 4 取值。
  * ================================================================== */
-#define REG_BASE        20000
-#define REG_COUNT       3
-#define IDX_VOLTAGE     0
-#define IDX_CURRENT     1
-#define IDX_POWER       2
+#define REG_BASE        0x3000
+#define REG_COUNT       5
+#define IDX_VOLTAGE     0      /* 0x3000 */
+#define IDX_CURRENT     2      /* 0x3002 */
+#define IDX_POWER       4      /* 0x3004 */
 
 #define COLLECT_PERIOD_MS       5000   /* 采集周期 5 秒 */
 #define REPORT_START_THRESHOLD  3      /* 连续成功 3 次后启动上报 */
@@ -53,7 +51,7 @@ static void collector_task(void *arg)
             consecutive_ok++;
 
             /* 原始寄存器值（Hex） */
-            ESP_LOGI(TAG, "Raw: [%u]=0x%04X [%u]=0x%04X [%u]=0x%04X",
+            ESP_LOGI(TAG, "Raw: [0x%04X]=0x%04X [0x%04X]=0x%04X [0x%04X]=0x%04X",
                      (unsigned)(REG_BASE + IDX_VOLTAGE), regs[IDX_VOLTAGE],
                      (unsigned)(REG_BASE + IDX_CURRENT), regs[IDX_CURRENT],
                      (unsigned)(REG_BASE + IDX_POWER),   regs[IDX_POWER]);
