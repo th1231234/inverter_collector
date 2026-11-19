@@ -1,0 +1,22 @@
+# ESP-IDF 构建产物
+build/
+sdkconfig.old
+
+# 编译中间文件
+*.o
+*.obj
+*.elf
+*.bin
+*.map
+*.lst
+
+# 编辑器与系统文件
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Python 缓存
+__pycache__/
+*.pyc
