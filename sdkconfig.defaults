@@ -26,3 +26,14 @@ CONFIG_WIFI_PASSWORD="YOUR_PASSWORD"
 CONFIG_REPORT_PROTO_UDP=y
 CONFIG_REPORT_TARGET_IP="192.168.1.200"
 CONFIG_REPORT_TARGET_PORT=8080
+
+# ---- MQTT（阶段二）----
+# 阶段二使用 MQTT 时，把上面的 CONFIG_REPORT_PROTO_UDP=y 换成：
+#   CONFIG_REPORT_PROTO_MQTT=y
+# 下面几项在选中 MQTT 后才生效。密码留空，由本机 sdkconfig 填写。
+# 工号决定四个主题 dev/<工号>/{read,write,resp,data} 与 Client ID，
+# 同一 Broker 上不能重复。
+CONFIG_MQTT_BROKER_URI="mqtt://192.168.137.1:1883"
+CONFIG_MQTT_DEV_ID="intern01"
+CONFIG_MQTT_USERNAME="esp32"
+CONFIG_MQTT_PASSWORD=""

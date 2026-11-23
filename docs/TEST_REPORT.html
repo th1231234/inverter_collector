@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>测试报告：逆变器数据采集器</title>
+<style>
+:root {
+  --bg: #ffffff;
+  --bg-soft: #f7f8fa;
+  --bg-code: #f6f8fa;
+  --fg: #1f2328;
+  --fg-muted: #656d76;
+  --border: #d8dee4;
+  --accent: #0969da;
+  --accent-soft: #ddf4ff;
+  --maxw: 880px;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: -apple-system, "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+  font-size: 15px;
+  line-height: 1.75;
+}
+#wrap { display: flex; align-items: flex-start; }
+
+/* ---------- 左侧目录 ---------- */
+aside {
+  position: sticky;
+  top: 0;
+  width: 290px;
+  min-width: 290px;
+  height: 100vh;
+  overflow-y: auto;
+  border-right: 1px solid var(--border);
+  background: var(--bg-soft);
+  padding: 18px 14px 60px;
+}
+aside h1 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 12px 4px;
+  letter-spacing: .2px;
+}
+#q {
+  width: 100%;
+  padding: 7px 10px;
+  font-size: 13px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: #fff;
+  margin-bottom: 14px;
+  outline: none;
+  font-family: inherit;
+}
+#q:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+#hits { font-size: 12px; color: var(--fg-muted); margin: -6px 0 10px 4px; min-height: 16px; }
+
+.toc { font-size: 13px; }
+.toc ul { list-style: none; margin: 0; padding-left: 12px; }
+.toc > ul { padding-left: 0; }
+.toc li { margin: 1px 0; }
+.toc a {
+  display: block;
+  padding: 3px 8px;
+  color: var(--fg);
+  text-decoration: none;
+  border-radius: 5px;
+  border-left: 2px solid transparent;
+}
+.toc a:hover { background: #eef1f4; }
+.toc a.active { background: var(--accent-soft); color: var(--accent); border-left-color: var(--accent); font-weight: 500; }
+.toc ul ul { font-size: 12.5px; color: var(--fg-muted); }
+
+/* ---------- 右侧正文 ---------- */
+main { flex: 1; min-width: 0; }
+article {
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 40px 48px 120px;
+}
+article h1, article h2, article h3, article h4, article h5, article h6 {
+  line-height: 1.4;
+  margin: 1.9em 0 .7em;
+  scroll-margin-top: 20px;
+}
+article h1 { font-size: 30px; font-weight: 650; margin-top: 0; padding-bottom: .3em; border-bottom: 1px solid var(--border); }
+article h2 { font-size: 23px; font-weight: 650; padding-bottom: .3em; border-bottom: 1px solid var(--border); }
+article h3 { font-size: 18px; font-weight: 600; color: #1f2328; }
+article h4 { font-size: 16px; font-weight: 600; color: #24292f; }
+article h5, article h6 { font-size: 14.5px; font-weight: 600; color: var(--fg-muted); }
+article p { margin: 0 0 15px; }
+article a { color: var(--accent); text-decoration: none; }
+article a:hover { text-decoration: underline; }
+article ul, article ol { padding-left: 26px; margin: 0 0 15px; }
+article li { margin: 4px 0; }
+article strong { font-weight: 600; }
+
+blockquote {
+  margin: 0 0 15px;
+  padding: 8px 16px;
+  color: var(--fg-muted);
+  border-left: 3px solid var(--border);
+  background: var(--bg-soft);
+  border-radius: 0 6px 6px 0;
+}
+
+/* 行内代码 */
+article code {
+  font-family: "Cascadia Code", Consolas, "Courier New", monospace;
+  font-size: 13px;
+  background: rgba(175,184,193,.2);
+  padding: 2px 6px;
+  border-radius: 5px;
+}
+
+/* 代码块 */
+.codebox { position: relative; margin: 0 0 18px; }
+.codebox pre {
+  margin: 0;
+  padding: 14px 16px;
+  overflow-x: auto;
+  background: var(--bg-code);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+.codebox pre code {
+  background: none;
+  padding: 0;
+  font-size: 12.5px;
+  white-space: pre;
+}
+.codebox .copy {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 11.5px;
+  padding: 3px 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--fg-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .15s;
+  font-family: inherit;
+}
+.codebox:hover .copy { opacity: 1; }
+.codebox .copy.done { color: #1a7f37; border-color: #1a7f37; }
+code.language-tag {
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  font-size: 10.5px;
+  color: #8b949e;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  pointer-events: none;
+}
+.codebox pre { padding-top: 30px; }
+
+/* 表格 */
+table {
+  border-collapse: collapse;
+  margin: 0 0 18px;
+  font-size: 14px;
+  width: auto;
+  max-width: 100%;
+  display: block;
+  overflow-x: auto;
+}
+th, td {
+  border: 1px solid var(--border);
+  padding: 7px 13px;
+  text-align: left;
+  vertical-align: top;
+}
+th { background: var(--bg-soft); font-weight: 600; white-space: nowrap; }
+tbody tr:nth-child(even) { background: #fbfcfd; }
+
+img {
+  max-width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin: 6px 0;
+}
+.imgmiss {
+  display: inline-block;
+  padding: 10px 14px;
+  background: #fff8e6;
+  border: 1px dashed #d4a72c;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #7a5c00;
+}
+
+hr { border: none; border-top: 1px solid var(--border); margin: 30px 0; }
+
+#top {
+  position: fixed;
+  right: 26px;
+  bottom: 26px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--fg-muted);
+  cursor: pointer;
+  font-size: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.08);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s;
+}
+#top.show { opacity: 1; pointer-events: auto; }
+
+@media (max-width: 900px) {
+  aside { display: none; }
+  article { padding: 24px 18px 90px; }
+}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <aside>
+    <h1>测试报告：逆变器数据采集器</h1>
+    <input id="q" type="search" placeholder="搜索目录标题…" autocomplete="off">
+    <div id="hits"></div>
+    <div class="toc">
+<ul>
+<li><a href="#测试报告-逆变器数据采集器">测试报告：逆变器数据采集器</a><ul>
+<li><a href="#1-测试环境">1. 测试环境</a><ul>
+<li><a href="#1-1-硬件">1.1 硬件</a></li>
+<li><a href="#1-2-软件">1.2 软件</a></li>
+<li><a href="#1-3-网络拓扑">1.3 网络拓扑</a></li>
+</ul>
+</li>
+<li><a href="#2-测试用例与结果">2. 测试用例与结果</a></li>
+<li><a href="#3-功能码自检明细-4-7">3. 功能码自检明细（4/7）</a><ul>
+<li><a href="#3-1-未通过原因">3.1 未通过原因</a></li>
+<li><a href="#3-2-处理措施">3.2 处理措施</a></li>
+</ul>
+</li>
+<li><a href="#4-端到端闭环证据">4. 端到端闭环证据</a></li>
+<li><a href="#5-关键指标">5. 关键指标</a></li>
+<li><a href="#6-发现的问题与处理">6. 发现的问题与处理</a></li>
+<li><a href="#7-遗留事项">7. 遗留事项</a></li>
+<li><a href="#8-复现步骤">8. 复现步骤</a></li>
+<li><a href="#9-结论">9. 结论</a></li>
+</ul>
+</li>
+</ul>
+</div>
+
+  </aside>
+  <main>
+    <article id="content">
+<h1 id="测试报告-逆变器数据采集器">测试报告：逆变器数据采集器</h1>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>被测对象</td>
+<td><code>inverter_collector</code>（ESP32-C3 + Modbus RTU + Wi-Fi 上报）</td>
+</tr>
+<tr>
+<td>测试依据</td>
+<td>成都易联智通 · 嵌入式初级工程师入职技术测验需求</td>
+</tr>
+<tr>
+<td>测试日期</td>
+<td>2026-11-20</td>
+</tr>
+<tr>
+<td>测试人</td>
+<td>田浩</td>
+</tr>
+<tr>
+<td>固件版本</td>
+<td>ESP-IDF v5.5.5 / app 版本 <code>c8e3465-dirty</code></td>
+</tr>
+<tr>
+<td>固件大小</td>
+<td>979,696 字节（旧）→ 981,040 字节（自检优化）→ <strong>981,552 字节</strong>（地址自适应，app 分区余量 6%）</td>
+</tr>
+<tr>
+<td>总体结论</td>
+<td><strong>核心功能全部通过</strong>：Modbus 采集 + JSON 解析 + MQTT 上报端到端闭环成立；7 项功能码自检通过 4 项，剩余 3 项为测试手法问题，代码侧已补齐自动适配</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="1-测试环境">1. 测试环境</h2>
+<h3 id="1-1-硬件">1.1 硬件</h3>
+<table>
+<thead>
+<tr>
+<th>器件</th>
+<th>型号 / 参数</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>主控</td>
+<td>ESP32-C3（QFN32，rev v0.4，MAC <code>34:85:18:cf:d1:f0</code>，4 MB XMC Flash）</td>
+</tr>
+<tr>
+<td>烧录/日志</td>
+<td>USB 转 TTL，四线（TX/RX/GND/3V3，无 RTS/DTR），<code>COM8</code></td>
+</tr>
+<tr>
+<td>Modbus 物理层</td>
+<td>TTL 转 485 + USB 转 485，<code>COM10</code>，9600-8-N-1</td>
+</tr>
+<tr>
+<td>增益电源</td>
+<td>3.3 V</td>
+</tr>
+</tbody>
+</table>
+<h3 id="1-2-软件">1.2 软件</h3>
+<table>
+<thead>
+<tr>
+<th>类别</th>
+<th>名称 / 版本</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>开发框架</td>
+<td>ESP-IDF v5.5.5，工具链 <code>riscv32-esp-elf</code></td>
+</tr>
+<tr>
+<td>从机仿真</td>
+<td>Modbus Slave（Slave ID = 1）</td>
+</tr>
+<tr>
+<td>MQTT Broker</td>
+<td>EMQX 5.2.1（Windows amd64，本机 <code>0.0.0.0:1883</code>）</td>
+</tr>
+<tr>
+<td>MQTT 订阅端</td>
+<td>MQTTX</td>
+</tr>
+<tr>
+<td>辅助脚本</td>
+<td><code>tools/serial_read.py</code>、<code>tools/mqtt_lab/*.py</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="1-3-网络拓扑">1.3 网络拓扑</h3>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>ESP32-C3 (192.168.137.219)
+        │  Wi-Fi STA，Windows 移动热点 &quot;LAPTOP&quot;
+        ▼
+Windows 热点网卡 192.168.137.1
+        │
+        ├── EMQX  0.0.0.0:1883   ← MQTT Broker
+        └── MQTTX 127.0.0.1:1883 ← 订阅 inverter/#
+</code></pre></div>
+
+<blockquote>
+<p>板子连接的是<strong>热点网卡固定地址 <code>192.168.137.1</code></strong>，不是 <code>127.0.0.1</code>——后者在板子上指向板子自己。</p>
+</blockquote>
+<hr />
+<h2 id="2-测试用例与结果">2. 测试用例与结果</h2>
+<table>
+<thead>
+<tr>
+<th>编号</th>
+<th>测试项</th>
+<th>预期</th>
+<th>实测</th>
+<th>结论</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>T01</td>
+<td>编译</td>
+<td>无错误、无新增告警</td>
+<td><code>Project build complete</code>，bin 981,552 字节，余量 6%</td>
+<td>通过</td>
+</tr>
+<tr>
+<td>T02</td>
+<td>烧录</td>
+<td>三个镜像 <code>Hash of data verified</code></td>
+<td>bootloader / 分区表 / app 全部校验通过</td>
+<td>通过</td>
+</tr>
+<tr>
+<td>T03</td>
+<td>启动时序</td>
+<td>先拿 IP 再启动上报通道</td>
+<td><code>network ready</code>(1714 ms) → <code>mqtt client started</code>(1724 ms)</td>
+<td>通过</td>
+</tr>
+<tr>
+<td>T04</td>
+<td>Wi-Fi 连接</td>
+<td>拿到 IP 并打印</td>
+<td><code>Wi-Fi connected, IP: 192.168.137.219</code></td>
+<td>通过</td>
+</tr>
+<tr>
+<td>T05</td>
+<td>断线自动重连</td>
+<td>断开后自愈，采集不断</td>
+<td><code>reason=201</code> / <code>reason=4</code> 连续两次 → 6.5 s 后重连成功</td>
+<td>通过</td>
+</tr>
+<tr>
+<td>T06</td>
+<td>Modbus <code>03</code> 读</td>
+<td>8 字节请求 / 15 字节应答，CRC 正确</td>
+<td><code>TX 01 03 30 00 00 05 8A C9</code> → <code>RX 01 03 0A ... 2A 71</code></td>
+<td>通过</td>
+</tr>
+<tr>
+<td>T07</td>
+<td>Modbus <code>06</code> 单写回读</td>
+<td>写入值与读回值一致</td>
+<td>写 <code>0x3008=4000</code>，回读 <code>0x0FA0</code></td>
+<td>通过</td>
+</tr>
+<tr>
+<td>T08</td>
+<td>Modbus <code>10</code> 多写回读</td>
+<td>3 个寄存器全对</td>
+<td><code>0x3009/0A/0B = 1111/2222/3333</code></td>
+<td>通过</td>
+</tr>
+<tr>
+<td>T09</td>
+<td>异常码识别</td>
+<td>非法地址返回 <code>0x02</code></td>
+<td><code>RX 01 83 02 C0 F1</code>，解析为 <code>illegal data address</code></td>
+<td>通过</td>
+</tr>
+<tr>
+<td>T10</td>
+<td>从机异常容错</td>
+<td>报错但不崩溃、不退出</td>
+<td>连续 17 次 <code>illegal function</code> 后仍正常采集</td>
+<td>通过</td>
+</tr>
+<tr>
+<td>T11</td>
+<td>数据换算</td>
+<td>3500/500/1750 → 350.0/5.00/1750</td>
+<td><code>Value: Voltage=350.0V, Current=5.00A, Power=1750W</code></td>
+<td>通过</td>
+</tr>
+<tr>
+<td>T12</td>
+<td>上报门控</td>
+<td>连续 3 次成功才上报</td>
+<td>第 3 次成功时打印 <code>3 consecutive reads OK, start MQTT reporting</code></td>
+<td>通过</td>
+</tr>
+<tr>
+<td>T13</td>
+<td>MQTT 连接</td>
+<td>CONNACK 成功，client_id 唯一</td>
+<td><code>broker connected</code>，<code>client_id=esp32c3-inverter-cfd1f0</code></td>
+<td>通过</td>
+</tr>
+<tr>
+<td>T14</td>
+<td>MQTT 发布</td>
+<td>QoS1 发布，载荷为 JSON</td>
+<td><code>published ... (msg_id=41144): {"voltage":350.0,"current":5.00,"power":1750}</code></td>
+<td>通过</td>
+</tr>
+<tr>
+<td>T15</td>
+<td>端到端闭环</td>
+<td>客户端收到设备真实数据</td>
+<td>MQTTX 收到同内容消息，时间戳与串口日志一一对应</td>
+<td>通过</td>
+</tr>
+<tr>
+<td>T16</td>
+<td>自检 <code>04/02/01</code></td>
+<td>3 项 PASS</td>
+<td>4/7（3 项 FAIL，见第 3 节）</td>
+<td><strong>未通过</strong></td>
+</tr>
+<tr>
+<td>T17</td>
+<td>周期稳定性</td>
+<td>5 s 一条，无丢报</td>
+<td>连续 23 个周期（115 s）无丢包、无重启</td>
+<td>通过</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="3-功能码自检明细-4-7">3. 功能码自检明细（4/7）</h2>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>----------------- 汇总 4/7 通过 -----------------
+  PASS 03 read holding 0x3000 x5
+  PASS 06 write + readback 0x3008
+  PASS 16 write + readback 0x3009 x3
+  PASS exception on illegal address 0xFFFF
+  FAIL 04 read input 0x0000 x3
+  FAIL 02 read discrete 0x0000 x8
+  FAIL 01 read coils 0x0000 x8
+</code></pre></div>
+
+<h3 id="3-1-未通过原因">3.1 未通过原因</h3>
+<p>三项失败的应答帧：</p>
+<table>
+<thead>
+<tr>
+<th>项</th>
+<th>请求</th>
+<th>应答</th>
+<th>异常码</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>04</code></td>
+<td><code>01 04 00 00 00 03</code></td>
+<td><code>01 84 02</code></td>
+<td><code>0x02 illegal data address</code></td>
+</tr>
+<tr>
+<td><code>02</code></td>
+<td><code>01 02 00 00 00 08</code></td>
+<td><code>01 82 02</code></td>
+<td><code>0x02 illegal data address</code></td>
+</tr>
+<tr>
+<td><code>01</code></td>
+<td><code>01 01 00 00 00 08</code></td>
+<td><code>01 81 02</code></td>
+<td><code>0x02 illegal data address</code></td>
+</tr>
+</tbody>
+</table>
+<p>均为 <strong><code>0x02</code> 而非 <code>0x01</code></strong>：说明 Function 已切换正确，但 Modbus Slave 的地址基址仍停在 <code>3000</code>，只响应 <code>3000~300F</code>，对地址 <code>0</code> 的请求回"地址越界"。</p>
+<p>而把 Address 改成 <code>0</code> 会导致 Modbus Slave <strong>重新初始化整张数据表</strong>（实测：切 Function 后寄存器值全部归零），代价是采集数据要重新填写。</p>
+<h3 id="3-2-处理措施">3.2 处理措施</h3>
+<p>代码侧增加<strong>地址自适应</strong>：<code>04/02/01</code> 三项先请求 <code>0x0000</code>，若返回 <code>0x02</code> 则自动改用 <code>0x3000</code> 重试，两种地址都算等价验证，日志会标记实际使用哪个：</p>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>W SELFTEST: 地址 0 不可用，改用 0x3000 读取成功（等价验证）
+</code></pre></div>
+
+<p>同时把自检交互从"固定倒计时"改为"每 2 秒主动探测"，并区分异常码给提示：</p>
+<table>
+<thead>
+<tr>
+<th>版本</th>
+<th>每阶段耗时</th>
+<th>总耗时</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>v1</td>
+<td>45 s</td>
+<td>~144 s</td>
+<td>3 轮 × 15 s 固定倒计时</td>
+</tr>
+<tr>
+<td>v2</td>
+<td>15~30 s</td>
+<td>~45 s</td>
+<td>2 轮 + 2 s 探测，切好即测</td>
+</tr>
+<tr>
+<td>v3</td>
+<td>同上</td>
+<td>待复测</td>
+<td>增加地址自适应，预期 7/7</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>复测条件：Modbus Slave 依次切 Function 为 <code>04 Input Registers</code> → <code>02 Input Status</code> → <code>01 Coils</code>，Address 保持 <code>3000</code> 不动。</p>
+</blockquote>
+<hr />
+<h2 id="4-端到端闭环证据">4. 端到端闭环证据</h2>
+<p>一次完整重启的时间线（节选）：</p>
+<table>
+<thead>
+<tr>
+<th>时间戳</th>
+<th>事件</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1714 ms</td>
+<td><code>Wi-Fi connected, IP: 192.168.137.219</code></td>
+</tr>
+<tr>
+<td>1714 ms</td>
+<td><code>MAIN: network ready, IP=192.168.137.219</code></td>
+</tr>
+<tr>
+<td>1724 ms</td>
+<td><code>MQTT: mqtt client started</code></td>
+</tr>
+<tr>
+<td>2414 ms</td>
+<td><code>MQTT: broker connected: mqtt://192.168.137.1:1883</code></td>
+</tr>
+<tr>
+<td>2414 ms</td>
+<td><code>client_id=esp32c3-inverter-cfd1f0, topic=inverter/collector/data</code></td>
+</tr>
+<tr>
+<td>55325 ms</td>
+<td>自检结束，汇总 4/7</td>
+</tr>
+<tr>
+<td>76845 ms</td>
+<td>主循环启动上报（第 3 次采集成功）</td>
+</tr>
+<tr>
+<td>135235 ms</td>
+<td><code>published (msg_id=41144): {"voltage":350.0,"current":5.00,"power":1750}</code></td>
+</tr>
+</tbody>
+</table>
+<p>MQTTX 订阅 <code>inverter/#</code> 收到（同一时段）：</p>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>Topic: inverter/collector/data   QoS: 1
+{&quot;voltage&quot;:350.0,&quot;current&quot;:5.00,&quot;power&quot;:1750}
+2026-11-20 17:22:15
+
+Topic: inverter/collector/data   QoS: 1
+{&quot;voltage&quot;:350.0,&quot;current&quot;:5.00,&quot;power&quot;:1750}
+2026-11-20 17:22:21
+</code></pre></div>
+
+<p>两端内容、QoS、时间戳完全对应，<strong>闭环成立</strong>。</p>
+<hr />
+<h2 id="5-关键指标">5. 关键指标</h2>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>实测值</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Modbus 单次往返</td>
+<td>270 ms</td>
+<td>9600 bps 下 8 字节请求 + 15 字节应答的理论值 ≈ 24 ms，其余为从机内部处理延时</td>
+</tr>
+<tr>
+<td>采集周期</td>
+<td>5000 ms</td>
+<td><code>COLLECT_PERIOD_MS</code></td>
+</tr>
+<tr>
+<td>MQTT 连接建立</td>
+<td>700 ms（IP 就绪后）</td>
+<td>修正启动时序前为 4 秒（含 3 次失败重连）</td>
+</tr>
+<tr>
+<td>Wi-Fi 关联耗时</td>
+<td>约 1.2 s</td>
+<td>热点已就绪的情况下</td>
+</tr>
+<tr>
+<td>断线重连恢复</td>
+<td>6.5 s</td>
+<td>含两次失败尝试</td>
+</tr>
+<tr>
+<td>固件分区占用</td>
+<td>94%</td>
+<td>1 MB app 分区仅余 6%，后续加 TLS/OTA 需扩分区</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="6-发现的问题与处理">6. 发现的问题与处理</h2>
+<table>
+<thead>
+<tr>
+<th>编号</th>
+<th>问题</th>
+<th>根因</th>
+<th>处理</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>P1</td>
+<td>启动时 MQTT 反复失败重连约 4 秒</td>
+<td><code>wifi_init_sta()</code> 只发起连接即返回，上报通道在无 IP 时就开始连</td>
+<td>新增 <code>wifi_wait_connected(20000)</code>，先等 IP（超时也继续，保证断网可采集）</td>
+</tr>
+<tr>
+<td>P2</td>
+<td>烧录报 <code>No serial data received</code></td>
+<td>四线转串口无 RTS，<code>--after hard_reset</code> 无法拉复位，芯片仍在跑 App</td>
+<td>手动 BOOT+RST 进下载模式；或改用带 DTR/RTS 的调试器</td>
+</tr>
+<tr>
+<td>P3</td>
+<td>esptool 依次尝试 COM6/7/8/10</td>
+<td>命令未指定 <code>-p</code></td>
+<td>烧录命令固定加 <code>-p COM8</code></td>
+</tr>
+<tr>
+<td>P4</td>
+<td>自检每阶段固定等 45 秒</td>
+<td>倒计时不感知从机状态</td>
+<td>改为每 2 秒探测 + 2 轮上限，总耗时降至 45 秒</td>
+</tr>
+<tr>
+<td>P5</td>
+<td>自检失败原因难定位</td>
+<td>只报"Function 没切"</td>
+<td>按异常码 <code>0x01</code>/<code>0x02</code> 分别提示，并自动适配地址</td>
+</tr>
+<tr>
+<td>P6</td>
+<td>切换 Function 后数据清零</td>
+<td>Modbus 四个数据区独立，且 Modbus Slave 按 OK 会重初始化</td>
+<td>固化操作顺序：自检全部结束 → 填值 → 不再打开对话框</td>
+</tr>
+<tr>
+<td>P7</td>
+<td>EMQX 后台密码错误</td>
+<td>该安装被前人改过密码，Dashboard 账号与 MQTT 账号是两套表</td>
+<td><code>emqx.cmd ctl admins passwd admin &lt;pwd&gt;</code> 重置</td>
+</tr>
+<tr>
+<td>P8</td>
+<td>EMQX 日志刷 <code>os_mon</code> 错误</td>
+<td>官方 Windows 包缺 <code>os_mon</code> 应用，<code>emqx_telemetry</code> 调用失败</td>
+<td><code>etc/emqx.conf</code> 关闭 <code>telemetry</code>，不影响转发</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="7-遗留事项">7. 遗留事项</h2>
+<ol>
+<li><strong>自检复测</strong>：烧录 v3（地址自适应）后应达到 7/7，需补一次回归记录。</li>
+<li><strong>防火墙 1883 入站</strong>：板子主动连电脑属入站连接，需管理员执行
+   <code>netsh advfirewall firewall add rule name="MQTT 1883" dir=in action=allow protocol=TCP localport=1883</code>。</li>
+<li><strong>分区余量</strong>：仅 6%，若后续启用 TLS 或 OTA，需调整 <code>partitions.csv</code> 将 app 分区扩大。</li>
+<li><strong>验收环境切换</strong>：公司网络下需改 <code>WIFI_SSID/PASSWORD</code> 与 <code>REPORT_TARGET_IP/PORT</code>（或 <code>MQTT_BROKER_URI</code>），全部通过 <code>menuconfig</code> 完成，无需改代码。</li>
+<li><strong>多设备区分</strong>：当前主题固定 <code>inverter/collector/data</code>，多台设备建议改为 <code>inverter/{devid}/data</code> 并在订阅端用通配符 <code>inverter/+/data</code>。</li>
+</ol>
+<hr />
+<h2 id="8-复现步骤">8. 复现步骤</h2>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code><span style="color: #60A0B0; font-style: italic"># 1. 编译</span>
+<span style="color: #007020">cd </span>D:\work\espidf_projects\inverter_collector
+idf.py build
+
+<span style="color: #60A0B0; font-style: italic"># 2. 进下载模式：按住 BOOT → 点 RST → 松 BOOT，然后烧录</span>
+python -m esptool --chip esp32c3 -p COM8 -b 460800 --before default_reset --after hard_reset `
+  write_flash --flash_mode dio --flash_size 4MB --flash_freq 80m `
+  0x0 build\bootloader\bootloader.bin 0x8000 build\partition_table\partition-table.bin `
+  0x10000 build\inverter_collector.bin
+
+<span style="color: #60A0B0; font-style: italic"># 3. 启动 Broker（另开窗口）</span>
+<span style="color: #007020">cd </span>D:\work\MQTT\emqx-5.2.1-windows-amd64\bin
+.\emqx.cmd <span style="color: #007020">start</span>
+
+<span style="color: #60A0B0; font-style: italic"># 4. 抓日志（或直接用串口助手 115200）</span>
+python tools\serial_read.py COM8 115200 30
+
+<span style="color: #60A0B0; font-style: italic"># 5. MQTTX 订阅 inverter/# 观察上报</span>
+</code></pre></div>
+
+<hr />
+<h2 id="9-结论">9. 结论</h2>
+<p>核心链路 <strong>Modbus RTU 采集 → 数值解析 → JSON 打包 → MQTT QoS1 发布 → 客户端接收</strong> 已完整跑通，异常场景（从机返回异常码、WiFi 断线、连续采集失败）均按预期降级且不崩溃，满足测验的功能要求。</p>
+<p>功能码自检 4/7 的三项缺失已定位为测试操作（从机地址基址）而非代码缺陷，代码侧已加入地址自适应以降低操作成本，待烧录 v3 后复测确认。</p>
+    </article>
+  </main>
+</div>
+<button id="top" title="回到顶部">↑</button>
+
+<script>
+(function () {
+  var q = document.getElementById('q');
+  var links = Array.prototype.slice.call(document.querySelectorAll('.toc a'));
+  var hits = document.getElementById('hits');
+
+  function filter() {
+    var s = q.value.trim().toLowerCase();
+    var n = 0;
+    links.forEach(function (a) {
+      var hit = !s || a.textContent.toLowerCase().indexOf(s) !== -1;
+      a.parentElement.style.display = hit ? '' : 'none';
+      if (hit && s) n++;
+    });
+    // 标题被隐藏时，父级 ul 可能全空，这里不管，保持简单
+    hits.textContent = s ? ('匹配 ' + n + ' 项') : ('共 ' + links.length + ' 个标题');
+  }
+  q.addEventListener('input', filter);
+  q.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') {
+      var first = links.filter(function (a) { return a.parentElement.style.display !== 'none'; })[0];
+      if (first) first.click();
+    }
+  });
+  filter();
+
+  // 代码块：加语言标签和复制按钮
+  document.querySelectorAll('pre').forEach(function (pre) {
+    var code = pre.querySelector('code');
+    if (!code) return;
+    var box = document.createElement('div');
+    box.className = 'codebox';
+    pre.parentNode.insertBefore(box, pre);
+    box.appendChild(pre);
+
+    var m = /language-([\w+-]+)/.exec(code.className || '');
+    if (m) {
+      var tag = document.createElement('span');
+      tag.className = 'language-tag';
+      tag.textContent = m[1];
+      box.appendChild(tag);
+    }
+
+    var btn = document.createElement('button');
+    btn.className = 'copy';
+    btn.textContent = '复制';
+    btn.addEventListener('click', function () {
+      var txt = code.innerText;
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(txt);
+      } else {
+        var ta = document.createElement('textarea');
+        ta.value = txt; document.body.appendChild(ta); ta.select();
+        document.execCommand('copy'); ta.remove();
+      }
+      btn.textContent = '已复制';
+      btn.classList.add('done');
+      setTimeout(function () { btn.textContent = '复制'; btn.classList.remove('done'); }, 1400);
+    });
+    box.appendChild(btn);
+  });
+
+  // 图片丢失时给个提示，而不是留一个破图标
+  document.querySelectorAll('img').forEach(function (img) {
+    img.addEventListener('error', function () {
+      var miss = document.createElement('span');
+      miss.className = 'imgmiss';
+      miss.textContent = '图片缺失：' + (img.getAttribute('src') || '');
+      img.replaceWith(miss);
+    });
+  });
+
+  // 目录高亮当前章节
+  var heads = Array.prototype.slice.call(document.querySelectorAll('article h2, article h3, article h4'));
+  function onScroll() {
+    var y = window.scrollY + 90;
+    var cur = null;
+    heads.forEach(function (h) { if (h.offsetTop <= y) cur = h; });
+    links.forEach(function (a) {
+      a.classList.toggle('active', cur && a.getAttribute('href') === '#' + cur.id);
+    });
+    document.getElementById('top').classList.toggle('show', window.scrollY > 400);
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+
+  document.getElementById('top').addEventListener('click', function () {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+})();
+</script>
+</body>
+</html>

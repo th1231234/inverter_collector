@@ -121,6 +121,29 @@ bool wifi_is_connected(void)
     return s_connected;
 }
 
+/* ------------------------------------------------------------------
+ * 阻塞等待"已拿到 IP"这个事件
+ *   pdFALSE = 不清除事件位（后续再等仍能立刻返回）
+ *   pdTRUE  = 等待所有指定位都满足（这里只有一位）
+ * ------------------------------------------------------------------ */
+bool wifi_wait_connected(uint32_t timeout_ms)
+{
+    /* 已经连上就不必再等（例如断线重连后很快恢复的情况） */
+    if (s_connected) {
+        return true;
+    }
+    if (s_wifi_event_group == NULL) {
+        return false;
+    }
+
+    EventBits_t bits = xEventGroupWaitBits(s_wifi_event_group,
+                                           WIFI_CONNECTED_BIT,
+                                           pdFALSE,
+                                           pdTRUE,
+                                           pdMS_TO_TICKS(timeout_ms));
+    return (bits & WIFI_CONNECTED_BIT) != 0;
+}
+
 const char *wifi_get_ip(void)
 {
     return s_ip;

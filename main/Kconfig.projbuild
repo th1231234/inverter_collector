@@ -24,26 +24,92 @@ menu "Inverter Collector"
                 TCP：需先 connect 建立连接，接收端需 listen/accept。
                      与文档标题「TCP服务器IP」一致。注意 TCP 是字节流，
                      消息之间以换行符 '\n' 分隔，接收端需按行切分。
+                MQTT：发布/订阅模型，需要 Broker 转发。适合多设备接入、
+                     断线自动重连的场景，是工业物联网更常见的做法。
 
             config REPORT_PROTO_UDP
                 bool "UDP（默认，符合功能要求）"
 
             config REPORT_PROTO_TCP
                 bool "TCP（对应文档标题中的 TCP服务器IP）"
+
+            config REPORT_PROTO_MQTT
+                bool "MQTT（发布到 Broker，额外能力）"
         endchoice
 
         config REPORT_TARGET_IP
-            string "上报目标 IP"
+            string "上报目标 IP（仅 UDP/TCP）"
             default "192.168.1.200"
             help
-                接收端所在电脑的 IP。自测可用电脑热点网关（通常 192.168.137.1）。
+                接收端所在电脑的 IP，只有 UDP / TCP 通道会用到。
+                自测可用电脑热点网关（通常 192.168.137.1）。
 
         config REPORT_TARGET_PORT
-            int "上报目标端口"
+            int "上报目标端口（仅 UDP/TCP）"
             range 1 65535
             default 8080
             help
-                接收端监听的端口，默认 8080。
+                接收端监听的端口，默认 8080，只有 UDP / TCP 通道会用到。
+
+        config MQTT_BROKER_URI
+            string "MQTT Broker 地址（URI）"
+            depends on REPORT_PROTO_MQTT
+            default "mqtt://broker.emqx.io:1883"
+            help
+                格式为 协议://主机:端口。
+                  公共测试服务器：mqtt://broker.emqx.io:1883
+                  本地 mosquitto：mqtt://192.168.1.100:1883
+                  加密连接：mqtts://主机:8883（还需配置证书）
+
+        config MQTT_DEV_ID
+            string "设备工号（拼主题与 Client ID）"
+            depends on REPORT_PROTO_MQTT
+            default "intern01"
+            help
+                四个主题由工号在编译期拼成（指导书 2.3 约定的 dev/<工号>/用途）：
+
+                  dev/<工号>/read    下行  查询寄存器（功能码 03）
+                  dev/<工号>/write   下行  修改寄存器（功能码 06）
+                  dev/<工号>/resp    上行  应答，每个请求必回一条
+                  dev/<工号>/data    上行  周期上报，每 5 秒一条
+
+                MQTT Client ID 也直接用工号。同一 Broker 上工号不能重复，
+                重复会互相踢下线。验收时换成真实工号。
+
+        config MQTT_USERNAME
+            string "MQTT 用户名（留空为匿名）"
+            depends on REPORT_PROTO_MQTT
+            default ""
+            help
+                broker.emqx.io 等公共测试服务器支持匿名，留空即可。
+
+        config MQTT_PASSWORD
+            string "MQTT 密码（留空为匿名）"
+            depends on REPORT_PROTO_MQTT
+            default ""
+    endmenu
+
+    menu "调试选项"
+        config MODBUS_SELFTEST
+            bool "启动时运行 Modbus 功能码自检"
+            default n
+            help
+                开启后，app_main 在 Modbus 初始化完成、启动采集任务之前，
+                先依次测试以下内容并把结果打到日志：
+
+                  03 读保持寄存器
+                  06 写单寄存器 + 回读校验
+                  16 写多寄存器 + 回读校验
+                  04 读输入寄存器
+                  01 读线圈
+                  02 读离散输入
+                  越界地址的异常应答
+
+                其中 04/01/02 需要把 Modbus Slave 窗口的 Function
+                切换到对应类型，否则会超时，属预期现象。
+                自检约耗时 3~6 秒，跑完自动进入正常采集。
+
+                仅用于训练与调试，交付版本请保持关闭。
     endmenu
 
 endmenu

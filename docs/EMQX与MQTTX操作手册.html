@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EMQX 与 MQTTX 操作手册</title>
+<style>
+:root {
+  --bg: #ffffff;
+  --bg-soft: #f7f8fa;
+  --bg-code: #f6f8fa;
+  --fg: #1f2328;
+  --fg-muted: #656d76;
+  --border: #d8dee4;
+  --accent: #0969da;
+  --accent-soft: #ddf4ff;
+  --maxw: 880px;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: -apple-system, "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+  font-size: 15px;
+  line-height: 1.75;
+}
+#wrap { display: flex; align-items: flex-start; }
+
+/* ---------- 左侧目录 ---------- */
+aside {
+  position: sticky;
+  top: 0;
+  width: 290px;
+  min-width: 290px;
+  height: 100vh;
+  overflow-y: auto;
+  border-right: 1px solid var(--border);
+  background: var(--bg-soft);
+  padding: 18px 14px 60px;
+}
+aside h1 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 12px 4px;
+  letter-spacing: .2px;
+}
+#q {
+  width: 100%;
+  padding: 7px 10px;
+  font-size: 13px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: #fff;
+  margin-bottom: 14px;
+  outline: none;
+  font-family: inherit;
+}
+#q:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+#hits { font-size: 12px; color: var(--fg-muted); margin: -6px 0 10px 4px; min-height: 16px; }
+
+.toc { font-size: 13px; }
+.toc ul { list-style: none; margin: 0; padding-left: 12px; }
+.toc > ul { padding-left: 0; }
+.toc li { margin: 1px 0; }
+.toc a {
+  display: block;
+  padding: 3px 8px;
+  color: var(--fg);
+  text-decoration: none;
+  border-radius: 5px;
+  border-left: 2px solid transparent;
+}
+.toc a:hover { background: #eef1f4; }
+.toc a.active { background: var(--accent-soft); color: var(--accent); border-left-color: var(--accent); font-weight: 500; }
+.toc ul ul { font-size: 12.5px; color: var(--fg-muted); }
+
+/* ---------- 右侧正文 ---------- */
+main { flex: 1; min-width: 0; }
+article {
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 40px 48px 120px;
+}
+article h1, article h2, article h3, article h4, article h5, article h6 {
+  line-height: 1.4;
+  margin: 1.9em 0 .7em;
+  scroll-margin-top: 20px;
+}
+article h1 { font-size: 30px; font-weight: 650; margin-top: 0; padding-bottom: .3em; border-bottom: 1px solid var(--border); }
+article h2 { font-size: 23px; font-weight: 650; padding-bottom: .3em; border-bottom: 1px solid var(--border); }
+article h3 { font-size: 18px; font-weight: 600; color: #1f2328; }
+article h4 { font-size: 16px; font-weight: 600; color: #24292f; }
+article h5, article h6 { font-size: 14.5px; font-weight: 600; color: var(--fg-muted); }
+article p { margin: 0 0 15px; }
+article a { color: var(--accent); text-decoration: none; }
+article a:hover { text-decoration: underline; }
+article ul, article ol { padding-left: 26px; margin: 0 0 15px; }
+article li { margin: 4px 0; }
+article strong { font-weight: 600; }
+
+blockquote {
+  margin: 0 0 15px;
+  padding: 8px 16px;
+  color: var(--fg-muted);
+  border-left: 3px solid var(--border);
+  background: var(--bg-soft);
+  border-radius: 0 6px 6px 0;
+}
+
+/* 行内代码 */
+article code {
+  font-family: "Cascadia Code", Consolas, "Courier New", monospace;
+  font-size: 13px;
+  background: rgba(175,184,193,.2);
+  padding: 2px 6px;
+  border-radius: 5px;
+}
+
+/* 代码块 */
+.codebox { position: relative; margin: 0 0 18px; }
+.codebox pre {
+  margin: 0;
+  padding: 14px 16px;
+  overflow-x: auto;
+  background: var(--bg-code);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+.codebox pre code {
+  background: none;
+  padding: 0;
+  font-size: 12.5px;
+  white-space: pre;
+}
+.codebox .copy {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 11.5px;
+  padding: 3px 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--fg-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .15s;
+  font-family: inherit;
+}
+.codebox:hover .copy { opacity: 1; }
+.codebox .copy.done { color: #1a7f37; border-color: #1a7f37; }
+code.language-tag {
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  font-size: 10.5px;
+  color: #8b949e;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  pointer-events: none;
+}
+.codebox pre { padding-top: 30px; }
+
+/* 表格 */
+table {
+  border-collapse: collapse;
+  margin: 0 0 18px;
+  font-size: 14px;
+  width: auto;
+  max-width: 100%;
+  display: block;
+  overflow-x: auto;
+}
+th, td {
+  border: 1px solid var(--border);
+  padding: 7px 13px;
+  text-align: left;
+  vertical-align: top;
+}
+th { background: var(--bg-soft); font-weight: 600; white-space: nowrap; }
+tbody tr:nth-child(even) { background: #fbfcfd; }
+
+img {
+  max-width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin: 6px 0;
+}
+.imgmiss {
+  display: inline-block;
+  padding: 10px 14px;
+  background: #fff8e6;
+  border: 1px dashed #d4a72c;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #7a5c00;
+}
+
+hr { border: none; border-top: 1px solid var(--border); margin: 30px 0; }
+
+#top {
+  position: fixed;
+  right: 26px;
+  bottom: 26px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--fg-muted);
+  cursor: pointer;
+  font-size: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.08);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s;
+}
+#top.show { opacity: 1; pointer-events: auto; }
+
+@media (max-width: 900px) {
+  aside { display: none; }
+  article { padding: 24px 18px 90px; }
+}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <aside>
+    <h1>EMQX 与 MQTTX 操作手册</h1>
+    <input id="q" type="search" placeholder="搜索目录标题…" autocomplete="off">
+    <div id="hits"></div>
+    <div class="toc">
+<ul>
+<li><a href="#emqx-与-mqttx-操作手册">EMQX 与 MQTTX 操作手册</a><ul>
+<li><a href="#1-角色分工">1. 角色分工</a></li>
+<li><a href="#2-前置条件">2. 前置条件</a></li>
+<li><a href="#3-启动-emqx">3. 启动 EMQX</a><ul>
+<li><a href="#3-1-打开-powershell">3.1 打开 PowerShell</a></li>
+<li><a href="#3-2-进入-bin-目录">3.2 进入 bin 目录</a></li>
+<li><a href="#3-3-启动">3.3 启动</a></li>
+</ul>
+</li>
+<li><a href="#4-验证启动结果">4. 验证启动结果</a></li>
+<li><a href="#5-登录-dashboard-可选">5. 登录 Dashboard（可选）</a></li>
+<li><a href="#6-mqttx-建立连接">6. MQTTX 建立连接</a></li>
+<li><a href="#7-订阅主题">7. 订阅主题</a></li>
+<li><a href="#8-板子侧配置对照">8. 板子侧配置对照</a></li>
+<li><a href="#9-数据验证">9. 数据验证</a><ul>
+<li><a href="#9-1-显示为-0-时">9.1 显示为 0 时</a></li>
+<li><a href="#9-2-数值偏小-10-倍-100-倍时">9.2 数值偏小 10 倍 / 100 倍时</a></li>
+</ul>
+</li>
+<li><a href="#10-停止-emqx">10. 停止 EMQX</a></li>
+<li><a href="#11-故障排查">11. 故障排查</a></li>
+<li><a href="#12-与-amqtt-实验台的关系">12. 与 amqtt 实验台的关系</a></li>
+<li><a href="#13-附-命令行验证-不依赖图形界面">13. 附：命令行验证（不依赖图形界面）</a></li>
+</ul>
+</li>
+</ul>
+</div>
+
+  </aside>
+  <main>
+    <article id="content">
+<h1 id="emqx-与-mqttx-操作手册">EMQX 与 MQTTX 操作手册</h1>
+<p>本文说明如何在本机启动 EMQX 作为 MQTT Broker，并用 MQTTX 图形客户端订阅 ESP32-C3 上报的逆变器数据。</p>
+<hr />
+<h2 id="1-角色分工">1. 角色分工</h2>
+<table>
+<thead>
+<tr>
+<th>角色</th>
+<th>由谁承担</th>
+<th>职责</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Broker（服务器）</td>
+<td>EMQX 5.2.1（本机 Windows）</td>
+<td>接收发布、转发订阅，不保存历史消息</td>
+</tr>
+<tr>
+<td>发布端</td>
+<td>ESP32-C3 <code>inverter_collector</code></td>
+<td>每 5 秒发布一条 JSON 至 <code>inverter/collector/data</code></td>
+</tr>
+<tr>
+<td>订阅端</td>
+<td>MQTTX（图形化）</td>
+<td>订阅 <code>inverter/#</code>，显示收到的消息</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>MQTTX 只是客户端，<strong>不能替代 Broker</strong>。没有 Broker 运行时，MQTTX 只会显示连接失败。</p>
+</blockquote>
+<hr />
+<h2 id="2-前置条件">2. 前置条件</h2>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>EMQX 安装目录</td>
+<td><code>D:\work\MQTT\emqx-5.2.1-windows-amd64</code></td>
+</tr>
+<tr>
+<td>MQTT 端口</td>
+<td><code>1883</code>（明文）</td>
+</tr>
+<tr>
+<td>Dashboard 端口</td>
+<td><code>18083</code>（网页）</td>
+</tr>
+<tr>
+<td>MQTT 账号</td>
+<td><code>esp32</code> / <code>123456</code></td>
+</tr>
+<tr>
+<td>订阅主题</td>
+<td><code>inverter/#</code></td>
+</tr>
+</tbody>
+</table>
+<p>启动前确认 1883 未被占用（若曾用 <code>tools/mqtt_lab</code> 的 amqtt 启动过，请先停掉）：</p>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>netstat -ano | findstr :1883
+</code></pre></div>
+
+<p>无输出表示端口空闲，可以继续。</p>
+<hr />
+<h2 id="3-启动-emqx">3. 启动 EMQX</h2>
+<h3 id="3-1-打开-powershell">3.1 打开 PowerShell</h3>
+<p>普通权限即可，<strong>不需要管理员</strong>。只有 <code>emqx.cmd install</code>（注册系统服务）才需要提权，本场景不用。</p>
+<h3 id="3-2-进入-bin-目录">3.2 进入 bin 目录</h3>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code><span style="color: #007020">cd </span>D:\work\MQTT\emqx-5.2.1-windows-amd64\bin
+</code></pre></div>
+
+<blockquote>
+<p>上面的路径如与本机不符，请以实际安装位置为准；目录内应有 <code>emqx.cmd</code>（约 7.3 KB）。</p>
+</blockquote>
+<h3 id="3-3-启动">3.3 启动</h3>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>.\emqx.cmd <span style="color: #007020">start</span>
+</code></pre></div>
+
+<p>预期输出：</p>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>Starting emqx on node emqx@127.0.0.1
+Start ok
+</code></pre></div>
+
+<ul>
+<li>首次启动约需 5~15 秒（Erlang 虚拟机上要加载 100 多个应用）。</li>
+<li>命令返回后窗口回到提示符是<strong>正常现象</strong>，EMQX 已在后台常驻，无需保持窗口开启。</li>
+<li>调试期若想实时看启动日志，改用 <code>.\emqx.cmd console</code>（前台运行，关闭窗口即停止）。</li>
+</ul>
+<hr />
+<h2 id="4-验证启动结果">4. 验证启动结果</h2>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>.\emqx.cmd ctl status
+</code></pre></div>
+
+<p>预期：</p>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>Node &#39;emqx@127.0.0.1&#39; 5.2.1 is started
+</code></pre></div>
+
+<p>再确认端口监听：</p>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>netstat -ano | findstr <span style="color: #4070A0">&quot;:1883 :18083&quot;</span>
+</code></pre></div>
+
+<p>应看到两条 <code>LISTENING</code> 记录：<code>1883</code> 负责 MQTT 报文，<code>18083</code> 负责 Dashboard 网页。</p>
+<hr />
+<h2 id="5-登录-dashboard-可选">5. 登录 Dashboard（可选）</h2>
+<p>浏览器打开 <code>http://localhost:18083</code>，账号 <code>admin</code>，密码 <code>admin12345</code>。</p>
+<table>
+<thead>
+<tr>
+<th>用途</th>
+<th>地址</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>客户端列表（确认板子是否连上）</td>
+<td><code>http://localhost:18083/#/clients</code></td>
+</tr>
+<tr>
+<td>订阅关系</td>
+<td><code>http://localhost:18083/#/subscriptions</code></td>
+</tr>
+<tr>
+<td>认证配置（建 MQTT 用户）</td>
+<td><code>http://localhost:18083/#/authentication</code></td>
+</tr>
+<tr>
+<td>客户端授权（ACL）</td>
+<td><code>http://localhost:18083/#/authorization</code></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>认证（Authentication）与授权（Authorization）是两件事：前者决定"能不能连"，后者决定"连上后能发哪些主题"。本项目只需要前者。</p>
+</blockquote>
+<p>若提示密码错误（该安装可能被他人改过密码）：</p>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>.\emqx.cmd ctl admins passwd admin admin12345
+</code></pre></div>
+
+<p>返回 <code>ok</code> 即重置成功。</p>
+<hr />
+<h2 id="6-mqttx-建立连接">6. MQTTX 建立连接</h2>
+<p>打开 MQTTX → 左下角 <strong>新建连接</strong>，按下表填写：</p>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>填写值</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Name</td>
+<td><code>local-emqx</code></td>
+<td>任意备注名</td>
+</tr>
+<tr>
+<td>Host</td>
+<td><code>127.0.0.1</code></td>
+<td>协议选 <code>mqtt://</code></td>
+</tr>
+<tr>
+<td>Port</td>
+<td><code>1883</code></td>
+<td>勿填 8883（TLS 专用）</td>
+</tr>
+<tr>
+<td>Username</td>
+<td><code>esp32</code></td>
+<td>MQTT 账号，不是 Dashboard 的 admin</td>
+</tr>
+<tr>
+<td>Password</td>
+<td><code>123456</code></td>
+<td>同上</td>
+</tr>
+<tr>
+<td>Client ID</td>
+<td>留空自动生成</td>
+<td>板子用 MAC 生成，二者不冲突</td>
+</tr>
+</tbody>
+</table>
+<p>点击 <strong>Connect</strong>，右上角显示绿色状态即连接成功。</p>
+<blockquote>
+<p>Dashboard 账号（<code>admin</code>）与 MQTT 账号（<code>esp32</code>）是两套独立表，不能混用。</p>
+</blockquote>
+<hr />
+<h2 id="7-订阅主题">7. 订阅主题</h2>
+<ol>
+<li>左下角点击 <strong>「+ New Subscription」</strong></li>
+<li><strong>Topic</strong> 填 <code>inverter/#</code></li>
+<li><strong>QoS</strong> 选 <code>1</code></li>
+<li>点击 <strong>Confirm</strong></li>
+</ol>
+<p><code>#</code> 为多层通配符，可匹配 <code>inverter/collector/data</code> 及后续新增的任何子主题。</p>
+<hr />
+<h2 id="8-板子侧配置对照">8. 板子侧配置对照</h2>
+<p>固件通过 <code>menuconfig → Inverter Collector → 上报通道</code> 配置，参数应与 Broker 一致：</p>
+<table>
+<thead>
+<tr>
+<th>配置项</th>
+<th>值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>REPORT_PROTO</code></td>
+<td><code>MQTT</code></td>
+</tr>
+<tr>
+<td><code>MQTT_BROKER_URI</code></td>
+<td><code>mqtt://192.168.137.1:1883</code></td>
+</tr>
+<tr>
+<td><code>MQTT_TOPIC</code></td>
+<td><code>inverter/collector/data</code></td>
+</tr>
+<tr>
+<td><code>MQTT_USERNAME</code></td>
+<td><code>esp32</code></td>
+</tr>
+<tr>
+<td><code>MQTT_PASSWORD</code></td>
+<td><code>123456</code></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>板子内填写的是 <code>192.168.137.1</code>（Windows 热点网卡固定地址），<strong>不是 <code>127.0.0.1</code></strong> —— 后者在板子上指向板子自己。MQTTX 跑在电脑上，因此用 <code>127.0.0.1</code>。</p>
+</blockquote>
+<hr />
+<h2 id="9-数据验证">9. 数据验证</h2>
+<p>板子上电或按一下 RST，约 10 秒内 MQTTX 消息列表出现：</p>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>{<span style="color: #062873; font-weight: bold">&quot;voltage&quot;</span>:<span style="color: #40A070">350.0</span>,<span style="color: #062873; font-weight: bold">&quot;current&quot;</span>:<span style="color: #40A070">5.00</span>,<span style="color: #062873; font-weight: bold">&quot;power&quot;</span>:<span style="color: #40A070">1750</span>}
+</code></pre></div>
+
+<p>每 5 秒一条，QoS 1。</p>
+<h3 id="9-1-显示为-0-时">9.1 显示为 0 时</h3>
+<p>说明 Modbus Slave 侧的寄存器未填值。在 <strong>03 Holding Registers</strong> 表中填写：</p>
+<table>
+<thead>
+<tr>
+<th>地址（Hex）</th>
+<th>填入值</th>
+<th>板子换算结果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>3000</code></td>
+<td><code>3500</code></td>
+<td>350.0 V</td>
+</tr>
+<tr>
+<td><code>3002</code></td>
+<td><code>500</code></td>
+<td>5.00 A</td>
+</tr>
+<tr>
+<td><code>3004</code></td>
+<td><code>1750</code></td>
+<td>1750 W</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>填值必须在自检全部结束之后进行。Modbus 的 <code>0x</code>/<code>1x</code>/<code>3x</code>/<code>4x</code> 是四个独立数据区，切换 Function 或按 OK 会重新初始化当前表，之前填的值会清零。</p>
+</blockquote>
+<h3 id="9-2-数值偏小-10-倍-100-倍时">9.2 数值偏小 10 倍 / 100 倍时</h3>
+<p>换算公式固定：电压 = 寄存器值 ÷ 10.0，电流 = 寄存器值 ÷ 100.0，功率 = 寄存器值。</p>
+<p>填 <code>350</code> 得到 <code>35.0V</code> 属于公式正确、数值填错，应填 <code>3500</code>。</p>
+<hr />
+<h2 id="10-停止-emqx">10. 停止 EMQX</h2>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>.\emqx.cmd stop
+</code></pre></div>
+
+<p>不要直接关电源或强杀进程，可能残留锁文件导致下次启动报节点冲突。</p>
+<hr />
+<h2 id="11-故障排查">11. 故障排查</h2>
+<table>
+<thead>
+<tr>
+<th>现象</th>
+<th>原因</th>
+<th>处理</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Start failed</code> / <code>Address already in use</code></td>
+<td>1883 被占用（amqtt 仍在运行）</td>
+<td><code>netstat -ano \| findstr :1883</code> 取 PID，<code>taskkill /PID &lt;pid&gt; /F</code></td>
+</tr>
+<tr>
+<td>命令瞬间返回，但 1883 无监听</td>
+<td>启动失败未提示</td>
+<td>用 <code>.\emqx.cmd console</code> 前台运行查看报错</td>
+</tr>
+<tr>
+<td>Dashboard 密码错误</td>
+<td>密码被更改</td>
+<td><code>.\emqx.cmd ctl admins passwd admin admin12345</code></td>
+</tr>
+<tr>
+<td>MQTTX 能连，板子连不上</td>
+<td>板子连接属入站流量，被防火墙拦截</td>
+<td>管理员执行：<code>netsh advfirewall firewall add rule name="MQTT 1883" dir=in action=allow protocol=TCP localport=1883</code></td>
+</tr>
+<tr>
+<td>板子日志反复 <code>MQTT_EVENT_DISCONNECTED</code></td>
+<td>地址或账号不符</td>
+<td>核对 <code>192.168.137.1</code>、<code>esp32/123456</code>；确认热点已开启</td>
+</tr>
+<tr>
+<td>板子连上后立刻被踢</td>
+<td>client_id 冲突或密码错</td>
+<td>client_id 由 MAC 生成，正常不冲突；核对密码</td>
+</tr>
+<tr>
+<td>日志刷 <code>os_mon</code> / <code>memsup</code> 错误</td>
+<td>官方 Windows 包缺少该 Erlang 应用</td>
+<td>已在 <code>etc/emqx.conf</code> 关闭 telemetry，可忽略，不影响报文转发</td>
+</tr>
+<tr>
+<td>重启电脑后连不上</td>
+<td>未注册为系统服务，不会自启</td>
+<td>每次开机重新执行第 3 步（<code>install</code> 需管理员且易报 1060，不建议）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="12-与-amqtt-实验台的关系">12. 与 amqtt 实验台的关系</h2>
+<p><code>tools/mqtt_lab/broker.yaml</code> 对应的是另一套 Broker（amqtt，纯 Python 实现），用于理解协议帧，<strong>与正式验收链路无关</strong>。</p>
+<table>
+<thead>
+<tr>
+<th>对比项</th>
+<th>EMQX（本文）</th>
+<th>amqtt（实验台）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>启动方式</td>
+<td><code>emqx.cmd start</code></td>
+<td><code>amqtt.exe -c tools\mqtt_lab\broker.yaml</code></td>
+</tr>
+<tr>
+<td>认证</td>
+<td>用户名密码 <code>esp32/123456</code></td>
+<td>匿名（<code>allow_anonymous: true</code>）</td>
+</tr>
+<tr>
+<td>端口</td>
+<td>1883</td>
+<td>1883</td>
+</tr>
+<tr>
+<td>适用场景</td>
+<td>正式联调、演示</td>
+<td>学习协议、抓原始字节</td>
+</tr>
+</tbody>
+</table>
+<p>两者都占用 1883，<strong>不能同时运行</strong>。使用 MQTTX 观察板子数据时，用 EMQX 即可，无需启动 amqtt。</p>
+<hr />
+<h2 id="13-附-命令行验证-不依赖图形界面">13. 附：命令行验证（不依赖图形界面）</h2>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code><span style="color: #007020">cd </span>D:\work\espidf_projects\inverter_collector\tools\mqtt_lab
+
+<span style="color: #60A0B0; font-style: italic"># 订阅（参数：host port topic user pass）</span>
+python lab_sub.py 127.0.0.1 1883 inverter/<span style="color: #60A0B0; font-style: italic"># esp32 123456</span>
+
+<span style="color: #60A0B0; font-style: italic"># 发布测试（参数：host port topic 条数 间隔 用户 密码）</span>
+python lab_pub.py 127.0.0.1 1883 inverter/test 5 1 esp32 123456
+</code></pre></div>
+
+<blockquote>
+<p><code>lab_sub.py</code> / <code>lab_pub.py</code> 依赖 <code>paho-mqtt</code>，已装在 ESP-IDF 的 Python 环境
+<code>D:\work\Espressif\python_env\idf5.5_py3.11_env</code> 中。</p>
+</blockquote>
+    </article>
+  </main>
+</div>
+<button id="top" title="回到顶部">↑</button>
+
+<script>
+(function () {
+  var q = document.getElementById('q');
+  var links = Array.prototype.slice.call(document.querySelectorAll('.toc a'));
+  var hits = document.getElementById('hits');
+
+  function filter() {
+    var s = q.value.trim().toLowerCase();
+    var n = 0;
+    links.forEach(function (a) {
+      var hit = !s || a.textContent.toLowerCase().indexOf(s) !== -1;
+      a.parentElement.style.display = hit ? '' : 'none';
+      if (hit && s) n++;
+    });
+    // 标题被隐藏时，父级 ul 可能全空，这里不管，保持简单
+    hits.textContent = s ? ('匹配 ' + n + ' 项') : ('共 ' + links.length + ' 个标题');
+  }
+  q.addEventListener('input', filter);
+  q.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') {
+      var first = links.filter(function (a) { return a.parentElement.style.display !== 'none'; })[0];
+      if (first) first.click();
+    }
+  });
+  filter();
+
+  // 代码块：加语言标签和复制按钮
+  document.querySelectorAll('pre').forEach(function (pre) {
+    var code = pre.querySelector('code');
+    if (!code) return;
+    var box = document.createElement('div');
+    box.className = 'codebox';
+    pre.parentNode.insertBefore(box, pre);
+    box.appendChild(pre);
+
+    var m = /language-([\w+-]+)/.exec(code.className || '');
+    if (m) {
+      var tag = document.createElement('span');
+      tag.className = 'language-tag';
+      tag.textContent = m[1];
+      box.appendChild(tag);
+    }
+
+    var btn = document.createElement('button');
+    btn.className = 'copy';
+    btn.textContent = '复制';
+    btn.addEventListener('click', function () {
+      var txt = code.innerText;
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(txt);
+      } else {
+        var ta = document.createElement('textarea');
+        ta.value = txt; document.body.appendChild(ta); ta.select();
+        document.execCommand('copy'); ta.remove();
+      }
+      btn.textContent = '已复制';
+      btn.classList.add('done');
+      setTimeout(function () { btn.textContent = '复制'; btn.classList.remove('done'); }, 1400);
+    });
+    box.appendChild(btn);
+  });
+
+  // 图片丢失时给个提示，而不是留一个破图标
+  document.querySelectorAll('img').forEach(function (img) {
+    img.addEventListener('error', function () {
+      var miss = document.createElement('span');
+      miss.className = 'imgmiss';
+      miss.textContent = '图片缺失：' + (img.getAttribute('src') || '');
+      img.replaceWith(miss);
+    });
+  });
+
+  // 目录高亮当前章节
+  var heads = Array.prototype.slice.call(document.querySelectorAll('article h2, article h3, article h4'));
+  function onScroll() {
+    var y = window.scrollY + 90;
+    var cur = null;
+    heads.forEach(function (h) { if (h.offsetTop <= y) cur = h; });
+    links.forEach(function (a) {
+      a.classList.toggle('active', cur && a.getAttribute('href') === '#' + cur.id);
+    });
+    document.getElementById('top').classList.toggle('show', window.scrollY > 400);
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+
+  document.getElementById('top').addEventListener('click', function () {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+})();
+</script>
+</body>
+</html>

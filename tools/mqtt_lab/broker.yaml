@@ -1,0 +1,27 @@
+# MQTT Broker 配置（amqtt 使用 YAML 格式）
+#
+# 启动命令：
+#   D:\work\Espressif\python_env\idf5.5_py3.11_env\Scripts\amqtt.exe -c tools\mqtt_lab\broker.yaml
+#
+# 关键字段说明：
+#   bind: 0.0.0.0:1883  ->  0.0.0.0 表示"监听本机所有网卡"，
+#                           这样 ESP32 通过局域网 IP 也能连进来。
+#                           如果只写 127.0.0.1，就只有本机能连，板子连不上。
+#   1883                ->  MQTT 明文协议的默认端口（8883 是 TLS 加密版）
+
+listeners:
+  default:
+    type: tcp
+    bind: 0.0.0.0:1883
+
+plugins:
+  # 打印客户端连接/断开/订阅事件，方便你在终端看到"谁连上了"
+  amqtt.plugins.logging_amqtt.EventLoggerPlugin:
+
+  # 匿名登录：不校验用户名密码。内网实验够用，公网服务器必须关掉换成密码认证
+  amqtt.plugins.authentication.AnonymousAuthPlugin:
+    allow_anonymous: true
+
+  # 系统主题：每隔 20 秒往 $SYS/# 发一条 broker 自身状态（连接数、消息量等）
+  amqtt.plugins.sys.broker.BrokerSysPlugin:
+    sys_interval: 20
