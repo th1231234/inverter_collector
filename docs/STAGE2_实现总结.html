@@ -1,0 +1,1110 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>阶段二实现总结 · MQTT 双向通信</title>
+<style>
+:root {
+  --bg: #ffffff;
+  --bg-soft: #f7f8fa;
+  --bg-code: #f6f8fa;
+  --fg: #1f2328;
+  --fg-muted: #656d76;
+  --border: #d8dee4;
+  --accent: #0969da;
+  --accent-soft: #ddf4ff;
+  --maxw: 880px;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: -apple-system, "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+  font-size: 15px;
+  line-height: 1.75;
+}
+#wrap { display: flex; align-items: flex-start; }
+
+/* ---------- 左侧目录 ---------- */
+aside {
+  position: sticky;
+  top: 0;
+  width: 290px;
+  min-width: 290px;
+  height: 100vh;
+  overflow-y: auto;
+  border-right: 1px solid var(--border);
+  background: var(--bg-soft);
+  padding: 18px 14px 60px;
+}
+aside h1 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 12px 4px;
+  letter-spacing: .2px;
+}
+#q {
+  width: 100%;
+  padding: 7px 10px;
+  font-size: 13px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: #fff;
+  margin-bottom: 14px;
+  outline: none;
+  font-family: inherit;
+}
+#q:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+#hits { font-size: 12px; color: var(--fg-muted); margin: -6px 0 10px 4px; min-height: 16px; }
+
+.toc { font-size: 13px; }
+.toc ul { list-style: none; margin: 0; padding-left: 12px; }
+.toc > ul { padding-left: 0; }
+.toc li { margin: 1px 0; }
+.toc a {
+  display: block;
+  padding: 3px 8px;
+  color: var(--fg);
+  text-decoration: none;
+  border-radius: 5px;
+  border-left: 2px solid transparent;
+}
+.toc a:hover { background: #eef1f4; }
+.toc a.active { background: var(--accent-soft); color: var(--accent); border-left-color: var(--accent); font-weight: 500; }
+.toc ul ul { font-size: 12.5px; color: var(--fg-muted); }
+
+/* ---------- 右侧正文 ---------- */
+main { flex: 1; min-width: 0; }
+article {
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 40px 48px 120px;
+}
+article h1, article h2, article h3, article h4, article h5, article h6 {
+  line-height: 1.4;
+  margin: 1.9em 0 .7em;
+  scroll-margin-top: 20px;
+}
+article h1 { font-size: 30px; font-weight: 650; margin-top: 0; padding-bottom: .3em; border-bottom: 1px solid var(--border); }
+article h2 { font-size: 23px; font-weight: 650; padding-bottom: .3em; border-bottom: 1px solid var(--border); }
+article h3 { font-size: 18px; font-weight: 600; color: #1f2328; }
+article h4 { font-size: 16px; font-weight: 600; color: #24292f; }
+article h5, article h6 { font-size: 14.5px; font-weight: 600; color: var(--fg-muted); }
+article p { margin: 0 0 15px; }
+article a { color: var(--accent); text-decoration: none; }
+article a:hover { text-decoration: underline; }
+article ul, article ol { padding-left: 26px; margin: 0 0 15px; }
+article li { margin: 4px 0; }
+article strong { font-weight: 600; }
+
+blockquote {
+  margin: 0 0 15px;
+  padding: 8px 16px;
+  color: var(--fg-muted);
+  border-left: 3px solid var(--border);
+  background: var(--bg-soft);
+  border-radius: 0 6px 6px 0;
+}
+
+/* 行内代码 */
+article code {
+  font-family: "Cascadia Code", Consolas, "Courier New", monospace;
+  font-size: 13px;
+  background: rgba(175,184,193,.2);
+  padding: 2px 6px;
+  border-radius: 5px;
+}
+
+/* 代码块 */
+.codebox { position: relative; margin: 0 0 18px; }
+.codebox pre {
+  margin: 0;
+  padding: 14px 16px;
+  overflow-x: auto;
+  background: var(--bg-code);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+.codebox pre code {
+  background: none;
+  padding: 0;
+  font-size: 12.5px;
+  white-space: pre;
+}
+.codebox .copy {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 11.5px;
+  padding: 3px 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--fg-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .15s;
+  font-family: inherit;
+}
+.codebox:hover .copy { opacity: 1; }
+.codebox .copy.done { color: #1a7f37; border-color: #1a7f37; }
+code.language-tag {
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  font-size: 10.5px;
+  color: #8b949e;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  pointer-events: none;
+}
+.codebox pre { padding-top: 30px; }
+
+/* 表格 */
+table {
+  border-collapse: collapse;
+  margin: 0 0 18px;
+  font-size: 14px;
+  width: auto;
+  max-width: 100%;
+  display: block;
+  overflow-x: auto;
+}
+th, td {
+  border: 1px solid var(--border);
+  padding: 7px 13px;
+  text-align: left;
+  vertical-align: top;
+}
+th { background: var(--bg-soft); font-weight: 600; white-space: nowrap; }
+tbody tr:nth-child(even) { background: #fbfcfd; }
+
+img {
+  max-width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin: 6px 0;
+}
+.imgmiss {
+  display: inline-block;
+  padding: 10px 14px;
+  background: #fff8e6;
+  border: 1px dashed #d4a72c;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #7a5c00;
+}
+
+hr { border: none; border-top: 1px solid var(--border); margin: 30px 0; }
+
+#top {
+  position: fixed;
+  right: 26px;
+  bottom: 26px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--fg-muted);
+  cursor: pointer;
+  font-size: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.08);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s;
+}
+#top.show { opacity: 1; pointer-events: auto; }
+
+@media (max-width: 900px) {
+  aside { display: none; }
+  article { padding: 24px 18px 90px; }
+}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <aside>
+    <h1>阶段二实现总结 · MQTT 双向通信</h1>
+    <input id="q" type="search" placeholder="搜索目录标题…" autocomplete="off">
+    <div id="hits"></div>
+    <div class="toc">
+<ul>
+<li><a href="#阶段二实现总结-mqtt-双向通信">阶段二实现总结：MQTT 双向通信</a><ul>
+<li><a href="#一-阶段二到底做了哪些事">一、阶段二到底做了哪些事</a></li>
+<li><a href="#二-文件级改动总览">二、文件级改动总览</a></li>
+<li><a href="#三-新增函数清单">三、新增函数清单</a><ul>
+<li><a href="#3-1-mqtt_cmd-c-命令通道-12-个函数-全新">3.1 mqtt_cmd.c —— 命令通道（12 个函数，全新）</a></li>
+<li><a href="#3-2-mqtt_report-c-mqtt-客户端-5-个函数">3.2 mqtt_report.c —— MQTT 客户端（5 个函数）</a></li>
+<li><a href="#3-3-modbus-c-通用化-加锁-新增-9-个">3.3 modbus.c —— 通用化 + 加锁（新增 9 个）</a></li>
+<li><a href="#3-4-wifi-c-等待就绪-新增-3-个">3.4 wifi.c —— 等待就绪（新增 3 个）</a></li>
+<li><a href="#3-5-modbus_selftest-c-功能码自检-12-个-调试用">3.5 modbus_selftest.c —— 功能码自检（12 个，调试用）</a></li>
+</ul>
+</li>
+<li><a href="#四-核心函数代码">四、核心函数代码</a><ul>
+<li><a href="#4-1-命令入口-先验长度-再验主题-最后补-0">4.1 命令入口：先验长度，再验主题，最后补 \0</a></li>
+<li><a href="#4-2-字段校验-坏-json-和越界分成两条路">4.2 字段校验：坏 JSON 和越界分成两条路</a></li>
+<li><a href="#4-3-执行任务-真正的-modbus-读写放这里">4.3 执行任务：真正的 Modbus 读写放这里</a></li>
+<li><a href="#4-4-事件回调-订阅写在-connected-里">4.4 事件回调：订阅写在 CONNECTED 里</a></li>
+<li><a href="#4-5-分片保护-一个容易漏掉的坑">4.5 分片保护：一个容易漏掉的坑</a></li>
+<li><a href="#4-6-总线互斥锁-采集与命令不能同时动串口">4.6 总线互斥锁：采集与命令不能同时动串口</a></li>
+<li><a href="#4-7-状态上报-读失败也要告诉上位机">4.7 状态上报：读失败也要告诉上位机</a></li>
+</ul>
+</li>
+<li><a href="#五-三个关键设计决策">五、三个关键设计决策</a><ul>
+<li><a href="#决策一-命令走队列-不走回调">决策一：命令走队列，不走回调</a></li>
+<li><a href="#决策二-主题在编译期拼好">决策二：主题在编译期拼好</a></li>
+<li><a href="#决策三-req_id-严格白名单">决策三：req_id 严格白名单</a></li>
+</ul>
+</li>
+<li><a href="#六-实测结果速查">六、实测结果速查</a></li>
+<li><a href="#七-遗留事项">七、遗留事项</a><ul>
+<li><a href="#分区扩容说明">分区扩容说明</a></li>
+<li><a href="#git-push-为何推不上去">git push 为何推不上去</a></li>
+<li><a href="#emqx-运行模式">EMQX 运行模式</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</div>
+
+  </aside>
+  <main>
+    <article id="content">
+<h1 id="阶段二实现总结-mqtt-双向通信">阶段二实现总结：MQTT 双向通信</h1>
+<blockquote>
+<p>对应考核指导书第二部分「MQTT 接入：查询、上报、修改」。
+所有功能已上板实测通过（M-01 ~ M-08 全 PASS），固件 1,004,560 字节。</p>
+</blockquote>
+<hr />
+<h2 id="一-阶段二到底做了哪些事">一、阶段二到底做了哪些事</h2>
+<p>阶段一只有一个方向：板子读 Modbus → 通过 UDP/TCP 单向发出去。阶段二加了<strong>反方向</strong>——上位机能发命令进来，板子执行后必须回执。这批工作拆成八项：</p>
+<table>
+<thead>
+<tr>
+<th>编号</th>
+<th>要求</th>
+<th>实现方式</th>
+<th>关键代码位置</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>M-01</td>
+<td>连上 Broker，订阅两个下行主题</td>
+<td><code>MQTT_EVENT_CONNECTED</code> 里调 <code>subscribe_cmd_topics()</code></td>
+<td><code>mqtt_report.c</code></td>
+</tr>
+<tr>
+<td>M-02</td>
+<td>每 5 秒上报电压/电流/功率</td>
+<td><code>mqtt_report_send_json()</code> 发到 <code>data</code> 主题，载荷带 <code>state</code></td>
+<td><code>mqtt_report.c</code></td>
+</tr>
+<tr>
+<td>M-03</td>
+<td>上位机查寄存器，板子回报数值</td>
+<td>订阅 <code>read</code> → 解析 → 入队 → <code>cmd_task</code> 执行功能码 03</td>
+<td><code>mqtt_cmd.c</code></td>
+</tr>
+<tr>
+<td>M-04</td>
+<td>上位机改寄存器，板子执行</td>
+<td>订阅 <code>write</code> → 功能码 06 → 回 <code>{"result":"ok"}</code></td>
+<td><code>mqtt_cmd.c</code></td>
+</tr>
+<tr>
+<td>M-05</td>
+<td>每条应答能对上请求</td>
+<td><code>req_id</code> 原样透传到 <code>resp</code></td>
+<td><code>mqtt_cmd.c</code></td>
+</tr>
+<tr>
+<td>M-06</td>
+<td>Broker 挂了采集不能停</td>
+<td>esp-mqtt 自动重连 + 发布失败只记日志</td>
+<td><code>mqtt_report.c</code></td>
+</tr>
+<tr>
+<td>M-07</td>
+<td>坏数据不能把程序搞崩</td>
+<td>三层校验：长度 → 主题 → 字段类型/范围</td>
+<td><code>mqtt_cmd.c</code></td>
+</tr>
+<tr>
+<td>M-08</td>
+<td>超长载荷要挡掉</td>
+<td>512 字节上限 + 分片投递检测</td>
+<td><code>mqtt_cmd.c</code> / <code>mqtt_report.c</code></td>
+</tr>
+</tbody>
+</table>
+<p>再加一条综合验收要求：<strong>从机掉线时 <code>state</code> 变 1，恢复后回 0</strong>。这靠 <code>inverter_collector.c</code> 里缓存上次数值实现。</p>
+<hr />
+<h2 id="二-文件级改动总览">二、文件级改动总览</h2>
+<table>
+<thead>
+<tr>
+<th>文件</th>
+<th>状态</th>
+<th>行数</th>
+<th>干了什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>main/mqtt_cmd.c</code></td>
+<td><strong>新增</strong></td>
+<td>410</td>
+<td>命令通道：订阅处理、JSON 校验、队列、Modbus 执行、应答组包</td>
+</tr>
+<tr>
+<td><code>main/mqtt_cmd.h</code></td>
+<td><strong>新增</strong></td>
+<td>38</td>
+<td>两个对外接口</td>
+</tr>
+<tr>
+<td><code>main/mqtt_report.c</code></td>
+<td><strong>重写</strong></td>
+<td>195</td>
+<td>MQTT 客户端、事件回调、订阅、发布</td>
+</tr>
+<tr>
+<td><code>main/mqtt_report.h</code></td>
+<td><strong>重写</strong></td>
+<td>68</td>
+<td>四个主题宏 + 三个接口</td>
+</tr>
+<tr>
+<td><code>main/modbus.c</code></td>
+<td>大改</td>
+<td>535（+440）</td>
+<td>总线互斥锁、通用读写接口、异常码记录</td>
+</tr>
+<tr>
+<td><code>main/modbus_selftest.c</code></td>
+<td><strong>新增</strong></td>
+<td>368</td>
+<td>七种功能码自检（调试用，默认关闭）</td>
+</tr>
+<tr>
+<td><code>main/modbus_selftest.h</code></td>
+<td><strong>新增</strong></td>
+<td>21</td>
+<td>自检入口</td>
+</tr>
+<tr>
+<td><code>main/inverter_collector.c</code></td>
+<td>改</td>
+<td>208</td>
+<td>缓存上次数值、<code>state</code> 字段、等 Wi-Fi 就绪</td>
+</tr>
+<tr>
+<td><code>main/wifi.c</code> / <code>.h</code></td>
+<td>改</td>
+<td>150</td>
+<td>新增等连接、取 IP 两个接口</td>
+</tr>
+<tr>
+<td><code>main/Kconfig.projbuild</code></td>
+<td>改</td>
+<td>115</td>
+<td>删旧 <code>MQTT_TOPIC</code>，新增 <code>MQTT_DEV_ID</code> 与 Broker 参数</td>
+</tr>
+<tr>
+<td><code>main/CMakeLists.txt</code></td>
+<td>改</td>
+<td>—</td>
+<td>加入 <code>mqtt_cmd.c</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="三-新增函数清单">三、新增函数清单</h2>
+<h3 id="3-1-mqtt_cmd-c-命令通道-12-个函数-全新">3.1 <code>mqtt_cmd.c</code> —— 命令通道（12 个函数，全新）</h3>
+<table>
+<thead>
+<tr>
+<th>函数</th>
+<th>职责</th>
+<th>一句话说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>mqtt_cmd_init()</code></td>
+<td>对外</td>
+<td>创建队列 + 启动 <code>cmd_task</code></td>
+</tr>
+<tr>
+<td><code>mqtt_cmd_handle_message()</code></td>
+<td>对外</td>
+<td>MQTT 回调的入口，判长度、判主题、补 <code>\0</code></td>
+</tr>
+<tr>
+<td><code>handle_cmd()</code></td>
+<td>内部</td>
+<td>解析 JSON、逐字段校验、入队或回错误</td>
+</tr>
+<tr>
+<td><code>cmd_task()</code></td>
+<td>内部</td>
+<td>出队 → 调 Modbus → 按结果回应答</td>
+</tr>
+<tr>
+<td><code>req_id_is_valid()</code></td>
+<td>内部</td>
+<td>白名单 <code>[A-Za-z0-9_-]</code>，长度 &lt; 32</td>
+</tr>
+<tr>
+<td><code>json_get_uint()</code></td>
+<td>内部</td>
+<td>取数字并校验范围，非数字类型直接拒</td>
+</tr>
+<tr>
+<td><code>topic_is()</code></td>
+<td>内部</td>
+<td>按长度比主题（主题不带 <code>\0</code>）</td>
+</tr>
+<tr>
+<td><code>publish_resp()</code></td>
+<td>内部</td>
+<td>cJSON 序列化后发到 <code>resp</code> 主题</td>
+</tr>
+<tr>
+<td><code>send_resp_error()</code></td>
+<td>内部</td>
+<td>组 <code>{"req_id","result":"error","msg"}</code></td>
+</tr>
+<tr>
+<td><code>send_resp_ok()</code></td>
+<td>内部</td>
+<td>组 <code>{"req_id","result":"ok"}</code></td>
+</tr>
+<tr>
+<td><code>send_resp_ok_values()</code></td>
+<td>内部</td>
+<td>组 <code>{"req_id","result":"ok","values":[...]}</code></td>
+</tr>
+<tr>
+<td><code>modbus_err_msg()</code></td>
+<td>内部</td>
+<td>把 Modbus 异常码翻译成可读字符串</td>
+</tr>
+</tbody>
+</table>
+<h3 id="3-2-mqtt_report-c-mqtt-客户端-5-个函数">3.2 <code>mqtt_report.c</code> —— MQTT 客户端（5 个函数）</h3>
+<table>
+<thead>
+<tr>
+<th>函数</th>
+<th>职责</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>mqtt_report_init()</code></td>
+<td>配置并启动客户端，先初始化命令模块再启动</td>
+</tr>
+<tr>
+<td><code>mqtt_report_is_connected()</code></td>
+<td>查连接状态（发 <code>state=1</code> 前要判）</td>
+</tr>
+<tr>
+<td><code>mqtt_report_publish()</code></td>
+<td>通用发布，QoS 1，长度用真实字节数</td>
+</tr>
+<tr>
+<td><code>mqtt_report_send_json()</code></td>
+<td>组业务载荷发到 <code>data</code></td>
+</tr>
+<tr>
+<td><code>subscribe_cmd_topics()</code></td>
+<td>订阅 <code>read</code> / <code>write</code></td>
+</tr>
+<tr>
+<td><code>mqtt_event_handler()</code></td>
+<td>五个事件分支：连上/断开/数据/错误</td>
+</tr>
+</tbody>
+</table>
+<h3 id="3-3-modbus-c-通用化-加锁-新增-9-个">3.3 <code>modbus.c</code> —— 通用化 + 加锁（新增 9 个）</h3>
+<table>
+<thead>
+<tr>
+<th>函数</th>
+<th>职责</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>modbus_transact()</code></td>
+<td><strong>新增加锁包装</strong>，原实现改名 <code>_locked</code></td>
+</tr>
+<tr>
+<td><code>modbus_transact_locked()</code></td>
+<td>原 <code>modbus_transact</code> 改的名，内部实现不变</td>
+</tr>
+<tr>
+<td><code>modbus_last_exception()</code></td>
+<td>返回最近一次从机异常码（0 = 超时）</td>
+</tr>
+<tr>
+<td><code>modbus_read_coils()</code></td>
+<td>功能码 01</td>
+</tr>
+<tr>
+<td><code>modbus_read_discrete_inputs()</code></td>
+<td>功能码 02</td>
+</tr>
+<tr>
+<td><code>modbus_read_holding()</code></td>
+<td>功能码 03，带 <code>slave</code> 参数</td>
+</tr>
+<tr>
+<td><code>modbus_read_input()</code></td>
+<td>功能码 04</td>
+</tr>
+<tr>
+<td><code>modbus_write_register()</code></td>
+<td>功能码 06</td>
+</tr>
+<tr>
+<td><code>modbus_write_registers()</code></td>
+<td>功能码 16（0x10）</td>
+</tr>
+<tr>
+<td><code>modbus_read_bits()</code> / <code>modbus_read_regs()</code></td>
+<td>位/字读取的公共实现</td>
+</tr>
+<tr>
+<td><code>modbus_build_read_request()</code></td>
+<td>四个读功能码共用的 8 字节帧构造</td>
+</tr>
+<tr>
+<td><code>modbus_exception_str()</code></td>
+<td>异常码转文字</td>
+</tr>
+</tbody>
+</table>
+<h3 id="3-4-wifi-c-等待就绪-新增-3-个">3.4 <code>wifi.c</code> —— 等待就绪（新增 3 个）</h3>
+<table>
+<thead>
+<tr>
+<th>函数</th>
+<th>职责</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>wifi_wait_connected(timeout_ms)</code></td>
+<td>阻塞等拿到 IP，最多 20 秒</td>
+</tr>
+<tr>
+<td><code>wifi_is_connected()</code></td>
+<td>查当前是否已连</td>
+</tr>
+<tr>
+<td><code>wifi_get_ip()</code></td>
+<td>取本机 IP 字符串</td>
+</tr>
+</tbody>
+</table>
+<h3 id="3-5-modbus_selftest-c-功能码自检-12-个-调试用">3.5 <code>modbus_selftest.c</code> —— 功能码自检（12 个，调试用）</h3>
+<p><code>modbus_selftest_run()</code> 主入口 + <code>probe_read_holding()</code> / <code>probe_write_single()</code> / <code>probe_write_multi()</code> / <code>probe_read_input()</code> / <code>probe_read_discrete()</code> / <code>probe_read_coils()</code> / <code>probe_exception()</code> 七个探针 + 记录与切窗口的辅助函数。只用来验证协议栈，交付版本关闭。</p>
+<hr />
+<h2 id="四-核心函数代码">四、核心函数代码</h2>
+<h3 id="4-1-命令入口-先验长度-再验主题-最后补-0">4.1 命令入口：先验长度，再验主题，最后补 <code>\0</code></h3>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code><span style="color: #902000">void</span><span style="color: #BBB"> </span><span style="color: #06287E">mqtt_cmd_handle_message</span>(<span style="color: #007020; font-weight: bold">const</span><span style="color: #BBB"> </span><span style="color: #902000">char</span><span style="color: #BBB"> </span><span style="color: #666">*</span>topic,<span style="color: #BBB"> </span><span style="color: #902000">int</span><span style="color: #BBB"> </span>topic_len,
+<span style="color: #BBB">                             </span><span style="color: #007020; font-weight: bold">const</span><span style="color: #BBB"> </span><span style="color: #902000">char</span><span style="color: #BBB"> </span><span style="color: #666">*</span>data,<span style="color: #BBB"> </span><span style="color: #902000">int</span><span style="color: #BBB"> </span>data_len)
+{
+<span style="color: #BBB">    </span><span style="color: #007020; font-weight: bold">if</span><span style="color: #BBB"> </span>(topic<span style="color: #BBB"> </span><span style="color: #666">==</span><span style="color: #BBB"> </span><span style="color: #007020">NULL</span><span style="color: #BBB"> </span><span style="color: #666">||</span><span style="color: #BBB"> </span>data<span style="color: #BBB"> </span><span style="color: #666">==</span><span style="color: #BBB"> </span><span style="color: #007020">NULL</span><span style="color: #BBB"> </span><span style="color: #666">||</span><span style="color: #BBB"> </span>topic_len<span style="color: #BBB"> </span><span style="color: #666">&lt;=</span><span style="color: #BBB"> </span><span style="color: #40A070">0</span><span style="color: #BBB"> </span><span style="color: #666">||</span><span style="color: #BBB"> </span>data_len<span style="color: #BBB"> </span><span style="color: #666">&lt;=</span><span style="color: #BBB"> </span><span style="color: #40A070">0</span>)<span style="color: #BBB"> </span>{
+<span style="color: #BBB">        </span>ESP_LOGW(TAG,<span style="color: #BBB"> </span><span style="color: #4070A0">&quot;empty message ignored&quot;</span>);
+<span style="color: #BBB">        </span><span style="color: #007020; font-weight: bold">return</span>;
+<span style="color: #BBB">    </span>}
+
+<span style="color: #BBB">    </span><span style="color: #60A0B0; font-style: italic">/* 先判长度再拷贝：1KB 超长载荷在这里被挡掉，不会撑爆本地缓冲 */</span>
+<span style="color: #BBB">    </span><span style="color: #007020; font-weight: bold">if</span><span style="color: #BBB"> </span>(data_len<span style="color: #BBB"> </span><span style="color: #666">&gt;=</span><span style="color: #BBB"> </span>CMD_MAX_PAYLOAD)<span style="color: #BBB"> </span>{
+<span style="color: #BBB">        </span>ESP_LOGW(TAG,<span style="color: #BBB"> </span><span style="color: #4070A0">&quot;payload too long (%d &gt;= %d), dropped&quot;</span>,<span style="color: #BBB"> </span>data_len,<span style="color: #BBB"> </span>CMD_MAX_PAYLOAD);
+<span style="color: #BBB">        </span><span style="color: #007020; font-weight: bold">return</span>;
+<span style="color: #BBB">    </span>}
+
+<span style="color: #BBB">    </span><span style="color: #902000">bool</span><span style="color: #BBB"> </span>is_write<span style="color: #BBB"> </span><span style="color: #666">=</span><span style="color: #BBB"> </span><span style="color: #007020">false</span>;
+<span style="color: #BBB">    </span><span style="color: #007020; font-weight: bold">if</span><span style="color: #BBB"> </span>(topic_is(topic,<span style="color: #BBB"> </span>topic_len,<span style="color: #BBB"> </span>MQTT_TOPIC_WRITE))<span style="color: #BBB"> </span>{
+<span style="color: #BBB">        </span>is_write<span style="color: #BBB"> </span><span style="color: #666">=</span><span style="color: #BBB"> </span><span style="color: #007020">true</span>;
+<span style="color: #BBB">    </span>}<span style="color: #BBB"> </span><span style="color: #007020; font-weight: bold">else</span><span style="color: #BBB"> </span><span style="color: #007020; font-weight: bold">if</span><span style="color: #BBB"> </span>(topic_is(topic,<span style="color: #BBB"> </span>topic_len,<span style="color: #BBB"> </span>MQTT_TOPIC_READ))<span style="color: #BBB"> </span>{
+<span style="color: #BBB">        </span>is_write<span style="color: #BBB"> </span><span style="color: #666">=</span><span style="color: #BBB"> </span><span style="color: #007020">false</span>;
+<span style="color: #BBB">    </span>}<span style="color: #BBB"> </span><span style="color: #007020; font-weight: bold">else</span><span style="color: #BBB"> </span>{
+<span style="color: #BBB">        </span>ESP_LOGW(TAG,<span style="color: #BBB"> </span><span style="color: #4070A0">&quot;unexpected topic (len=%d), ignored&quot;</span>,<span style="color: #BBB"> </span>topic_len);
+<span style="color: #BBB">        </span><span style="color: #007020; font-weight: bold">return</span>;
+<span style="color: #BBB">    </span>}
+
+<span style="color: #BBB">    </span><span style="color: #60A0B0; font-style: italic">/* MQTT 载荷不保证以 &#39;\0&#39; 结尾，拷贝后手动补，再交给 cJSON */</span>
+<span style="color: #BBB">    </span><span style="color: #902000">char</span><span style="color: #BBB"> </span>payload[CMD_MAX_PAYLOAD];
+<span style="color: #BBB">    </span>memcpy(payload,<span style="color: #BBB"> </span>data,<span style="color: #BBB"> </span>(<span style="color: #902000">size_t</span>)data_len);
+<span style="color: #BBB">    </span>payload[data_len]<span style="color: #BBB"> </span><span style="color: #666">=</span><span style="color: #BBB"> </span><span style="color: #4070A0">&#39;\0&#39;</span>;
+
+<span style="color: #BBB">    </span>handle_cmd(is_write,<span style="color: #BBB"> </span>payload);
+}
+</code></pre></div>
+
+<p>三个细节值得说：</p>
+<ul>
+<li><strong><code>data_len &gt;= 512</code> 就丢</strong>，不等 cJSON 报错。缓冲区是栈上定长的，长度先卡死就不会溢出。</li>
+<li><strong>主题必须按长度比较</strong>。<code>event-&gt;topic</code> 不以 <code>\0</code> 结尾，用 <code>strcmp</code> 会读越界。</li>
+<li><strong><code>payload[data_len] = '\0'</code></strong>。MQTT 载荷是二进制安全的字节流，cJSON 需要 <code>\0</code> 结尾才能解析。</li>
+</ul>
+<h3 id="4-2-字段校验-坏-json-和越界分成两条路">4.2 字段校验：坏 JSON 和越界分成两条路</h3>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>handle_cmd()<span style="color: #BBB"> </span>里三个关键判断<span style="border: 1px solid #F00">：</span>
+
+<span style="color: #60A0B0; font-style: italic">/* ① 坏 JSON：取不到 req_id，无法组出合法应答，只能丢弃 */</span>
+cJSON<span style="color: #BBB"> </span><span style="color: #666">*</span>root<span style="color: #BBB"> </span><span style="color: #666">=</span><span style="color: #BBB"> </span>cJSON_Parse(payload);
+<span style="color: #007020; font-weight: bold">if</span><span style="color: #BBB"> </span>(root<span style="color: #BBB"> </span><span style="color: #666">==</span><span style="color: #BBB"> </span><span style="color: #007020">NULL</span>)<span style="color: #BBB"> </span>{
+<span style="color: #BBB">    </span>ESP_LOGE(TAG,<span style="color: #BBB"> </span><span style="color: #4070A0">&quot;bad json on %s, dropped&quot;</span>,<span style="color: #BBB"> </span>topic);
+<span style="color: #BBB">    </span><span style="color: #007020; font-weight: bold">return</span>;
+}
+
+<span style="color: #60A0B0; font-style: italic">/* ② req_id 不合法：同样丢弃，因为不知道回给谁 */</span>
+cJSON<span style="color: #BBB"> </span><span style="color: #666">*</span>j_id<span style="color: #BBB"> </span><span style="color: #666">=</span><span style="color: #BBB"> </span>cJSON_GetObjectItemCaseSensitive(root,<span style="color: #BBB"> </span><span style="color: #4070A0">&quot;req_id&quot;</span>);
+<span style="color: #007020; font-weight: bold">if</span><span style="color: #BBB"> </span>(<span style="color: #666">!</span>cJSON_IsString(j_id)<span style="color: #BBB"> </span><span style="color: #666">||</span><span style="color: #BBB"> </span>j_id<span style="color: #666">-&gt;</span>valuestring<span style="color: #BBB"> </span><span style="color: #666">==</span><span style="color: #BBB"> </span><span style="color: #007020">NULL</span><span style="color: #BBB"> </span><span style="color: #666">||</span>
+<span style="color: #BBB">    </span><span style="color: #666">!</span>req_id_is_valid(j_id<span style="color: #666">-&gt;</span>valuestring))<span style="color: #BBB"> </span>{
+<span style="color: #BBB">    </span>ESP_LOGE(TAG,<span style="color: #BBB"> </span><span style="color: #4070A0">&quot;missing or illegal req_id on %s, dropped&quot;</span>,<span style="color: #BBB"> </span>topic);
+<span style="color: #BBB">    </span>cJSON_Delete(root);
+<span style="color: #BBB">    </span><span style="color: #007020; font-weight: bold">return</span>;
+}
+
+<span style="color: #60A0B0; font-style: italic">/* ③ 其他字段越界：req_id 已经有了，可以回错误 */</span>
+<span style="color: #007020; font-weight: bold">if</span><span style="color: #BBB"> </span>(<span style="color: #666">!</span>json_get_uint(j_addr,<span style="color: #BBB"> </span><span style="color: #40A070">0</span>,<span style="color: #BBB"> </span>MODBUS_ADDR_MAX,<span style="color: #BBB"> </span><span style="color: #666">&amp;</span>u))<span style="color: #BBB"> </span>{
+<span style="color: #BBB">    </span>err<span style="color: #BBB"> </span><span style="color: #666">=</span><span style="color: #BBB"> </span>MSG_INVALID_PARAM;
+<span style="color: #BBB">    </span><span style="color: #007020; font-weight: bold">goto</span><span style="color: #BBB"> </span>done;
+}
+</code></pre></div>
+
+<p>这个区分是 M-07 的核心：<strong>知道回给谁就回错误，不知道就只记日志</strong>。坏 JSON 如果硬要回应答，只能编一个假 <code>req_id</code>，反而让上位机误以为对应上了。</p>
+<p>配套的 <code>json_get_uint</code> 不接受字符串：</p>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code><span style="color: #007020; font-weight: bold">static</span><span style="color: #BBB"> </span><span style="color: #902000">bool</span><span style="color: #BBB"> </span><span style="color: #06287E">json_get_uint</span>(<span style="color: #007020; font-weight: bold">const</span><span style="color: #BBB"> </span>cJSON<span style="color: #BBB"> </span><span style="color: #666">*</span>item,<span style="color: #BBB"> </span><span style="color: #902000">unsigned</span><span style="color: #BBB"> </span>min,<span style="color: #BBB"> </span><span style="color: #902000">unsigned</span><span style="color: #BBB"> </span>max,<span style="color: #BBB"> </span><span style="color: #902000">unsigned</span><span style="color: #BBB"> </span><span style="color: #666">*</span>out)
+{
+<span style="color: #BBB">    </span><span style="color: #007020; font-weight: bold">if</span><span style="color: #BBB"> </span>(<span style="color: #666">!</span>cJSON_IsNumber(item))<span style="color: #BBB"> </span>{
+<span style="color: #BBB">        </span><span style="color: #007020; font-weight: bold">return</span><span style="color: #BBB"> </span><span style="color: #007020">false</span>;<span style="color: #BBB">          </span><span style="color: #60A0B0; font-style: italic">/* &quot;12288&quot; 这种字符串也被拒 */</span>
+<span style="color: #BBB">    </span>}
+<span style="color: #BBB">    </span><span style="color: #902000">double</span><span style="color: #BBB"> </span>d<span style="color: #BBB"> </span><span style="color: #666">=</span><span style="color: #BBB"> </span>item<span style="color: #666">-&gt;</span>valuedouble;
+<span style="color: #BBB">    </span><span style="color: #007020; font-weight: bold">if</span><span style="color: #BBB"> </span>(d<span style="color: #BBB"> </span><span style="color: #666">&lt;</span><span style="color: #BBB"> </span>(<span style="color: #902000">double</span>)min<span style="color: #BBB"> </span><span style="color: #666">||</span><span style="color: #BBB"> </span>d<span style="color: #BBB"> </span><span style="color: #666">&gt;</span><span style="color: #BBB"> </span>(<span style="color: #902000">double</span>)max)<span style="color: #BBB"> </span>{
+<span style="color: #BBB">        </span><span style="color: #007020; font-weight: bold">return</span><span style="color: #BBB"> </span><span style="color: #007020">false</span>;
+<span style="color: #BBB">    </span>}
+<span style="color: #BBB">    </span><span style="color: #666">*</span>out<span style="color: #BBB"> </span><span style="color: #666">=</span><span style="color: #BBB"> </span>(<span style="color: #902000">unsigned</span>)d;
+<span style="color: #BBB">    </span><span style="color: #007020; font-weight: bold">return</span><span style="color: #BBB"> </span><span style="color: #007020">true</span>;
+}
+</code></pre></div>
+
+<h3 id="4-3-执行任务-真正的-modbus-读写放这里">4.3 执行任务：真正的 Modbus 读写放这里</h3>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code><span style="color: #007020; font-weight: bold">static</span><span style="color: #BBB"> </span><span style="color: #902000">void</span><span style="color: #BBB"> </span><span style="color: #06287E">cmd_task</span>(<span style="color: #902000">void</span><span style="color: #BBB"> </span><span style="color: #666">*</span>arg)
+{
+<span style="color: #BBB">    </span>cmd_req_t<span style="color: #BBB"> </span>req;
+
+<span style="color: #BBB">    </span><span style="color: #007020; font-weight: bold">while</span><span style="color: #BBB"> </span>(<span style="color: #40A070">1</span>)<span style="color: #BBB"> </span>{
+<span style="color: #BBB">        </span><span style="color: #007020; font-weight: bold">if</span><span style="color: #BBB"> </span>(xQueueReceive(s_queue,<span style="color: #BBB"> </span><span style="color: #666">&amp;</span>req,<span style="color: #BBB"> </span>portMAX_DELAY)<span style="color: #BBB"> </span><span style="color: #666">!=</span><span style="color: #BBB"> </span>pdTRUE)<span style="color: #BBB"> </span>{
+<span style="color: #BBB">            </span><span style="color: #007020; font-weight: bold">continue</span>;
+<span style="color: #BBB">        </span>}
+
+<span style="color: #BBB">        </span><span style="color: #007020; font-weight: bold">if</span><span style="color: #BBB"> </span>(req.is_write)<span style="color: #BBB"> </span>{
+<span style="color: #BBB">            </span><span style="color: #902000">bool</span><span style="color: #BBB"> </span>ok<span style="color: #BBB"> </span><span style="color: #666">=</span><span style="color: #BBB"> </span>modbus_write_register(req.slave,<span style="color: #BBB"> </span>req.addr,<span style="color: #BBB"> </span>req.value);
+<span style="color: #BBB">            </span><span style="color: #007020; font-weight: bold">if</span><span style="color: #BBB"> </span>(ok)<span style="color: #BBB"> </span>{
+<span style="color: #BBB">                </span>ESP_LOGI(TAG,<span style="color: #BBB"> </span><span style="color: #4070A0">&quot;write ok: req_id=%s addr=0x%04X value=%u&quot;</span>,<span style="color: #BBB"> </span>...);
+<span style="color: #BBB">                </span>send_resp_ok(req.req_id);
+<span style="color: #BBB">            </span>}<span style="color: #BBB"> </span><span style="color: #007020; font-weight: bold">else</span><span style="color: #BBB"> </span>{
+<span style="color: #BBB">                </span>send_resp_error(req.req_id,<span style="color: #BBB"> </span>modbus_err_msg());
+<span style="color: #BBB">            </span>}
+<span style="color: #BBB">            </span><span style="color: #007020; font-weight: bold">continue</span>;
+<span style="color: #BBB">        </span>}
+
+<span style="color: #BBB">        </span><span style="color: #60A0B0; font-style: italic">/* read：req.num 已在入队前限制在 1~16，缓冲区定长安全 */</span>
+<span style="color: #BBB">        </span><span style="color: #902000">uint16_t</span><span style="color: #BBB"> </span>regs[CMD_MAX_READ_NUM]<span style="color: #BBB"> </span><span style="color: #666">=</span><span style="color: #BBB"> </span>{<span style="color: #40A070">0</span>};
+<span style="color: #BBB">        </span><span style="color: #902000">bool</span><span style="color: #BBB"> </span>ok<span style="color: #BBB"> </span><span style="color: #666">=</span><span style="color: #BBB"> </span>modbus_read_holding(req.slave,<span style="color: #BBB"> </span>req.addr,<span style="color: #BBB"> </span>req.num,<span style="color: #BBB"> </span>regs);
+<span style="color: #BBB">        </span><span style="color: #007020; font-weight: bold">if</span><span style="color: #BBB"> </span>(ok)<span style="color: #BBB"> </span>{
+<span style="color: #BBB">            </span>send_resp_ok_values(req.req_id,<span style="color: #BBB"> </span>regs,<span style="color: #BBB"> </span>(<span style="color: #902000">int</span>)req.num);
+<span style="color: #BBB">        </span>}<span style="color: #BBB"> </span><span style="color: #007020; font-weight: bold">else</span><span style="color: #BBB"> </span>{
+<span style="color: #BBB">            </span>send_resp_error(req.req_id,<span style="color: #BBB"> </span>modbus_err_msg());
+<span style="color: #BBB">        </span>}
+<span style="color: #BBB">    </span>}
+}
+</code></pre></div>
+
+<p><strong>为什么不直接在 MQTT 回调里读 Modbus</strong>：</p>
+<p>一次 Modbus 读最坏要 <code>200ms 超时 × 3 次重试 ≈ 600ms</code>。回调跑在 esp-mqtt 自己的任务里，在这里阻塞 600ms，协议栈就没法处理心跳包，超过 keepalive（60 秒）会被 Broker 踢下线，表现为「一发命令就掉线重连」。</p>
+<p>所以回调只当<strong>传达室</strong>：验一下、拆一下、塞进队列，立刻返回。</p>
+<h3 id="4-4-事件回调-订阅写在-connected-里">4.4 事件回调：订阅写在 CONNECTED 里</h3>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code><span style="color: #007020; font-weight: bold">case</span><span style="color: #BBB"> </span><span style="color: #60ADD5">MQTT_EVENT_CONNECTED</span>:
+<span style="color: #BBB">    </span>s_connected<span style="color: #BBB"> </span><span style="color: #666">=</span><span style="color: #BBB"> </span><span style="color: #007020">true</span>;
+<span style="color: #BBB">    </span>ESP_LOGI(TAG,<span style="color: #BBB"> </span><span style="color: #4070A0">&quot;broker connected: %s&quot;</span>,<span style="color: #BBB"> </span>CONFIG_MQTT_BROKER_URI);
+<span style="color: #BBB">    </span>subscribe_cmd_topics();<span style="color: #BBB">          </span><span style="color: #60A0B0; font-style: italic">/* 每次连上都要重新订阅 */</span>
+<span style="color: #BBB">    </span><span style="color: #007020; font-weight: bold">break</span>;
+
+<span style="color: #007020; font-weight: bold">case</span><span style="color: #BBB"> </span><span style="color: #60ADD5">MQTT_EVENT_DATA</span>:
+<span style="color: #BBB">    </span><span style="color: #60A0B0; font-style: italic">/* 分片投递：data_len 只是分片长度，total_data_len 才是整条 */</span>
+<span style="color: #BBB">    </span><span style="color: #007020; font-weight: bold">if</span><span style="color: #BBB"> </span>(event<span style="color: #666">-&gt;</span>total_data_len<span style="color: #BBB"> </span><span style="color: #666">!=</span><span style="color: #BBB"> </span>event<span style="color: #666">-&gt;</span>data_len)<span style="color: #BBB"> </span>{
+<span style="color: #BBB">        </span>ESP_LOGW(TAG,<span style="color: #BBB"> </span><span style="color: #4070A0">&quot;fragmented payload (%d/%d bytes), dropped&quot;</span>,
+<span style="color: #BBB">                 </span>event<span style="color: #666">-&gt;</span>data_len,<span style="color: #BBB"> </span>event<span style="color: #666">-&gt;</span>total_data_len);
+<span style="color: #BBB">        </span><span style="color: #007020; font-weight: bold">break</span>;
+<span style="color: #BBB">    </span>}
+<span style="color: #BBB">    </span>mqtt_cmd_handle_message(event<span style="color: #666">-&gt;</span>topic,<span style="color: #BBB"> </span>event<span style="color: #666">-&gt;</span>topic_len,
+<span style="color: #BBB">                            </span>event<span style="color: #666">-&gt;</span>data,<span style="color: #BBB"> </span>event<span style="color: #666">-&gt;</span>data_len);
+<span style="color: #BBB">    </span><span style="color: #007020; font-weight: bold">break</span>;
+</code></pre></div>
+
+<p><strong>订阅必须写在 CONNECTED 回调</strong>：默认 clean session 不保留会话状态，断线重连后订阅关系全部丢失。如果只在 <code>app_main</code> 里订阅一次，重连之后就变成「能上报但收不到命令」——这个故障现象很有迷惑性。</p>
+<h3 id="4-5-分片保护-一个容易漏掉的坑">4.5 分片保护：一个容易漏掉的坑</h3>
+<p>esp-mqtt 的接收缓冲是 1024 字节，超过的消息会被拆成多片，<strong>每片单独触发一次 <code>MQTT_EVENT_DATA</code></strong>。实测 1061 字节的载荷被拆成 1000 + 61 两片。</p>
+<p>问题在于：单片 1000 字节的 JSON 是残缺的，cJSON 会解析失败；但<strong>残片有可能恰好构成一个合法 JSON</strong>，一旦被解析成功，就会执行一条本该被拒绝的命令。</p>
+<p>所以判断依据不能只看长度，要看这两个字段是否相等：</p>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code><span style="color: #007020; font-weight: bold">if</span><span style="color: #BBB"> </span>(event<span style="color: #666">-&gt;</span>total_data_len<span style="color: #BBB"> </span><span style="color: #666">!=</span><span style="color: #BBB"> </span>event<span style="color: #666">-&gt;</span>data_len)<span style="color: #BBB"> </span>{<span style="color: #BBB">   </span><span style="color: #60A0B0; font-style: italic">/* 不相等 = 这是碎片 */</span>
+<span style="color: #BBB">    </span>ESP_LOGW(TAG,<span style="color: #BBB"> </span><span style="color: #4070A0">&quot;fragmented payload (%d/%d bytes), dropped&quot;</span>,<span style="color: #BBB"> </span>...);
+<span style="color: #BBB">    </span><span style="color: #007020; font-weight: bold">break</span>;<span style="color: #BBB">                                        </span><span style="color: #60A0B0; font-style: italic">/* 整条丢弃，不尝试拼接 */</span>
+}
+</code></pre></div>
+
+<p>实测日志：</p>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>W (12345) MQTT: fragmented payload (1000/1061 bytes), dropped
+W (12345) MQTT: fragmented payload (61/1061 bytes), dropped
+</code></pre></div>
+
+<h3 id="4-6-总线互斥锁-采集与命令不能同时动串口">4.6 总线互斥锁：采集与命令不能同时动串口</h3>
+<p>阶段二之前只有采集任务用串口，没人抢。加了命令通道后，两个任务会同时操作同一个 UART：</p>
+<ul>
+<li>采集任务每 5 秒读一次</li>
+<li>命令任务随时可能插入</li>
+</ul>
+<p>如果命令任务在采集任务「发完帧、还没收完」时插进去，两个响应会串在一起，CRC 校验必然失败。</p>
+<p>解法是在事务层加锁：</p>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code><span style="color: #007020; font-weight: bold">static</span><span style="color: #BBB"> </span><span style="color: #902000">bool</span><span style="color: #BBB"> </span><span style="color: #06287E">modbus_transact</span>(<span style="color: #902000">uint8_t</span><span style="color: #BBB"> </span>slave,<span style="color: #BBB"> </span><span style="color: #902000">uint8_t</span><span style="color: #BBB"> </span>func,
+<span style="color: #BBB">                            </span><span style="color: #007020; font-weight: bold">const</span><span style="color: #BBB"> </span><span style="color: #902000">uint8_t</span><span style="color: #BBB"> </span><span style="color: #666">*</span>tx,<span style="color: #BBB"> </span><span style="color: #902000">int</span><span style="color: #BBB"> </span>tx_len,
+<span style="color: #BBB">                            </span><span style="color: #902000">uint8_t</span><span style="color: #BBB"> </span><span style="color: #666">*</span>rx,<span style="color: #BBB"> </span><span style="color: #902000">int</span><span style="color: #BBB"> </span>rx_cap,<span style="color: #BBB"> </span><span style="color: #902000">int</span><span style="color: #BBB"> </span>rx_expect,<span style="color: #BBB"> </span><span style="color: #902000">int</span><span style="color: #BBB"> </span><span style="color: #666">*</span>rx_len)
+{
+<span style="color: #BBB">    </span><span style="color: #007020; font-weight: bold">if</span><span style="color: #BBB"> </span>(s_bus_lock<span style="color: #BBB"> </span><span style="color: #666">==</span><span style="color: #BBB"> </span><span style="color: #007020">NULL</span>)<span style="color: #BBB"> </span>{
+<span style="color: #BBB">        </span><span style="color: #60A0B0; font-style: italic">/* 还没初始化就调用属于编程错误，退化为无锁执行并留日志 */</span>
+<span style="color: #BBB">        </span>ESP_LOGW(TAG,<span style="color: #BBB"> </span><span style="color: #4070A0">&quot;bus lock not init, run without lock&quot;</span>);
+<span style="color: #BBB">        </span><span style="color: #007020; font-weight: bold">return</span><span style="color: #BBB"> </span>modbus_transact_locked(slave,<span style="color: #BBB"> </span>func,<span style="color: #BBB"> </span>tx,<span style="color: #BBB"> </span>tx_len,<span style="color: #BBB"> </span>rx,<span style="color: #BBB"> </span>rx_cap,<span style="color: #BBB"> </span>rx_expect,<span style="color: #BBB"> </span>rx_len);
+<span style="color: #BBB">    </span>}
+
+<span style="color: #BBB">    </span><span style="color: #007020; font-weight: bold">if</span><span style="color: #BBB"> </span>(xSemaphoreTake(s_bus_lock,<span style="color: #BBB"> </span>portMAX_DELAY)<span style="color: #BBB"> </span><span style="color: #666">!=</span><span style="color: #BBB"> </span>pdTRUE)<span style="color: #BBB"> </span>{
+<span style="color: #BBB">        </span>ESP_LOGE(TAG,<span style="color: #BBB"> </span><span style="color: #4070A0">&quot;take bus lock failed&quot;</span>);
+<span style="color: #BBB">        </span><span style="color: #007020; font-weight: bold">return</span><span style="color: #BBB"> </span><span style="color: #007020">false</span>;
+<span style="color: #BBB">    </span>}
+
+<span style="color: #BBB">    </span><span style="color: #902000">bool</span><span style="color: #BBB"> </span>ok<span style="color: #BBB"> </span><span style="color: #666">=</span><span style="color: #BBB"> </span>modbus_transact_locked(slave,<span style="color: #BBB"> </span>func,<span style="color: #BBB"> </span>tx,<span style="color: #BBB"> </span>tx_len,<span style="color: #BBB"> </span>rx,<span style="color: #BBB"> </span>rx_cap,<span style="color: #BBB"> </span>rx_expect,<span style="color: #BBB"> </span>rx_len);
+
+<span style="color: #BBB">    </span>xSemaphoreGive(s_bus_lock);
+<span style="color: #BBB">    </span><span style="color: #007020; font-weight: bold">return</span><span style="color: #BBB"> </span>ok;
+}
+</code></pre></div>
+
+<p><strong>锁的粒度必须覆盖整个事务</strong>：清缓冲 → 发帧 → 收帧 → CRC 校验 → 重试。只锁「发帧」是不够的，因为接收阶段同样共享同一个缓冲区。</p>
+<p>用互斥量而不是二值信号量，是为了拿到优先级继承——命令任务持锁时如果采集任务抢 CPU，FreeRTOS 会临时把命令任务的优先级提到采集任务之上，避免优先级反转。</p>
+<h3 id="4-7-状态上报-读失败也要告诉上位机">4.7 状态上报：读失败也要告诉上位机</h3>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code><span style="color: #60A0B0; font-style: italic">/* 成功时缓存本次结果 */</span>
+last_voltage<span style="color: #BBB"> </span><span style="color: #666">=</span><span style="color: #BBB"> </span>voltage;
+last_current<span style="color: #BBB"> </span><span style="color: #666">=</span><span style="color: #BBB"> </span>current;
+last_power<span style="color: #BBB">   </span><span style="color: #666">=</span><span style="color: #BBB"> </span>power;
+has_last<span style="color: #BBB">     </span><span style="color: #666">=</span><span style="color: #BBB"> </span><span style="color: #007020">true</span>;
+
+...
+
+<span style="color: #60A0B0; font-style: italic">/* 失败时带上 state=1 和上次的数值 */</span>
+<span style="color: #007020; font-weight: bold">if</span><span style="color: #BBB"> </span>(reporting<span style="color: #BBB"> </span><span style="color: #666">&amp;&amp;</span><span style="color: #BBB"> </span>wifi_ok<span style="color: #BBB"> </span><span style="color: #666">&amp;&amp;</span><span style="color: #BBB"> </span>has_last<span style="color: #BBB"> </span><span style="color: #666">&amp;&amp;</span><span style="color: #BBB"> </span>mqtt_report_is_connected())<span style="color: #BBB"> </span>{
+<span style="color: #BBB">    </span>ESP_LOGW(TAG,<span style="color: #BBB"> </span><span style="color: #4070A0">&quot;report stale values with state=1 (modbus down)&quot;</span>);
+<span style="color: #BBB">    </span>mqtt_report_send_json(last_voltage,<span style="color: #BBB"> </span>last_current,<span style="color: #BBB"> </span>last_power,<span style="color: #BBB"> </span><span style="color: #40A070">1</span>);
+}
+</code></pre></div>
+
+<p>为什么不干脆不发：上位机分不清「设备掉线」和「网络抖动」。带上 <code>state=1</code> 和上次的数值，云端能立刻判断是「采集侧故障」而不是「设备失联」，同时还能看到故障前的最后读数。</p>
+<hr />
+<h2 id="五-三个关键设计决策">五、三个关键设计决策</h2>
+<h3 id="决策一-命令走队列-不走回调">决策一：命令走队列，不走回调</h3>
+<table>
+<thead>
+<tr>
+<th>方案</th>
+<th>后果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>回调里直接读 Modbus</td>
+<td>阻塞 600ms → 心跳超时 → 被 Broker 踢下线</td>
+</tr>
+<tr>
+<td>回调只入队，独立任务执行</td>
+<td>回调 &lt;1ms 返回，协议栈正常工作</td>
+</tr>
+</tbody>
+</table>
+<p>代价是多一个任务（栈 4096）和一个队列（深度 8）。队列满时明确回 <code>request_busy</code>，而不是静默丢弃——上位机至少知道请求没被接受。</p>
+<h3 id="决策二-主题在编译期拼好">决策二：主题在编译期拼好</h3>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code><span style="color: #007020">#define MQTT_TOPIC_READ   &quot;dev/&quot; CONFIG_MQTT_DEV_ID &quot;/read&quot;</span>
+</code></pre></div>
+
+<p>C 语言的字面量拼接，编译期完成，运行时零开销。改工号只需改 menuconfig 里的 <code>CONFIG_MQTT_DEV_ID</code>，四个主题一起变，不会出现「改了三个漏了一个」。</p>
+<h3 id="决策三-req_id-严格白名单">决策三：<code>req_id</code> 严格白名单</h3>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code><span style="color: #007020; font-weight: bold">static</span><span style="color: #BBB"> </span><span style="color: #902000">bool</span><span style="color: #BBB"> </span><span style="color: #06287E">req_id_is_valid</span>(<span style="color: #007020; font-weight: bold">const</span><span style="color: #BBB"> </span><span style="color: #902000">char</span><span style="color: #BBB"> </span><span style="color: #666">*</span>s)
+{
+<span style="color: #BBB">    </span><span style="color: #902000">size_t</span><span style="color: #BBB"> </span>n<span style="color: #BBB"> </span><span style="color: #666">=</span><span style="color: #BBB"> </span>strlen(s);
+<span style="color: #BBB">    </span><span style="color: #007020; font-weight: bold">if</span><span style="color: #BBB"> </span>(n<span style="color: #BBB"> </span><span style="color: #666">==</span><span style="color: #BBB"> </span><span style="color: #40A070">0</span><span style="color: #BBB"> </span><span style="color: #666">||</span><span style="color: #BBB"> </span>n<span style="color: #BBB"> </span><span style="color: #666">&gt;=</span><span style="color: #BBB"> </span>CMD_MAX_REQ_ID)<span style="color: #BBB"> </span>{
+<span style="color: #BBB">        </span><span style="color: #007020; font-weight: bold">return</span><span style="color: #BBB"> </span><span style="color: #007020">false</span>;
+<span style="color: #BBB">    </span>}
+<span style="color: #BBB">    </span><span style="color: #007020; font-weight: bold">for</span><span style="color: #BBB"> </span>(<span style="color: #902000">size_t</span><span style="color: #BBB"> </span>i<span style="color: #BBB"> </span><span style="color: #666">=</span><span style="color: #BBB"> </span><span style="color: #40A070">0</span>;<span style="color: #BBB"> </span>i<span style="color: #BBB"> </span><span style="color: #666">&lt;</span><span style="color: #BBB"> </span>n;<span style="color: #BBB"> </span>i<span style="color: #666">++</span>)<span style="color: #BBB"> </span>{
+<span style="color: #BBB">        </span><span style="color: #902000">char</span><span style="color: #BBB"> </span>c<span style="color: #BBB"> </span><span style="color: #666">=</span><span style="color: #BBB"> </span>s[i];
+<span style="color: #BBB">        </span><span style="color: #902000">bool</span><span style="color: #BBB"> </span>ok<span style="color: #BBB"> </span><span style="color: #666">=</span><span style="color: #BBB"> </span>(c<span style="color: #BBB"> </span><span style="color: #666">&gt;=</span><span style="color: #BBB"> </span><span style="color: #4070A0">&#39;a&#39;</span><span style="color: #BBB"> </span><span style="color: #666">&amp;&amp;</span><span style="color: #BBB"> </span>c<span style="color: #BBB"> </span><span style="color: #666">&lt;=</span><span style="color: #BBB"> </span><span style="color: #4070A0">&#39;z&#39;</span>)<span style="color: #BBB"> </span><span style="color: #666">||</span><span style="color: #BBB"> </span>(c<span style="color: #BBB"> </span><span style="color: #666">&gt;=</span><span style="color: #BBB"> </span><span style="color: #4070A0">&#39;A&#39;</span><span style="color: #BBB"> </span><span style="color: #666">&amp;&amp;</span><span style="color: #BBB"> </span>c<span style="color: #BBB"> </span><span style="color: #666">&lt;=</span><span style="color: #BBB"> </span><span style="color: #4070A0">&#39;Z&#39;</span>)<span style="color: #BBB"> </span><span style="color: #666">||</span>
+<span style="color: #BBB">                  </span>(c<span style="color: #BBB"> </span><span style="color: #666">&gt;=</span><span style="color: #BBB"> </span><span style="color: #4070A0">&#39;0&#39;</span><span style="color: #BBB"> </span><span style="color: #666">&amp;&amp;</span><span style="color: #BBB"> </span>c<span style="color: #BBB"> </span><span style="color: #666">&lt;=</span><span style="color: #BBB"> </span><span style="color: #4070A0">&#39;9&#39;</span>)<span style="color: #BBB"> </span><span style="color: #666">||</span><span style="color: #BBB"> </span>c<span style="color: #BBB"> </span><span style="color: #666">==</span><span style="color: #BBB"> </span><span style="color: #4070A0">&#39;_&#39;</span><span style="color: #BBB"> </span><span style="color: #666">||</span><span style="color: #BBB"> </span>c<span style="color: #BBB"> </span><span style="color: #666">==</span><span style="color: #BBB"> </span><span style="color: #4070A0">&#39;-&#39;</span>;
+<span style="color: #BBB">        </span><span style="color: #007020; font-weight: bold">if</span><span style="color: #BBB"> </span>(<span style="color: #666">!</span>ok)<span style="color: #BBB"> </span>{
+<span style="color: #BBB">            </span><span style="color: #007020; font-weight: bold">return</span><span style="color: #BBB"> </span><span style="color: #007020">false</span>;
+<span style="color: #BBB">        </span>}
+<span style="color: #BBB">    </span>}
+<span style="color: #BBB">    </span><span style="color: #007020; font-weight: bold">return</span><span style="color: #BBB"> </span><span style="color: #007020">true</span>;
+}
+</code></pre></div>
+
+<p>只允许字母、数字、下划线、连字符。这样 <code>req_id</code> 拼进 JSON 时<strong>不可能注入引号或反斜杠</strong>，也就不需要为了转义去动态分配内存——在只有 400KB 可用堆的 MCU 上，这个约束换来的是「不会被构造出的恶意 <code>req_id</code> 撑爆内存」。</p>
+<hr />
+<h2 id="六-实测结果速查">六、实测结果速查</h2>
+<table>
+<thead>
+<tr>
+<th>编号</th>
+<th>验证方式</th>
+<th>结果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>M-01</td>
+<td>串口日志 <code>subscribed "dev/intern01/read" (msg_id=41151)</code></td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>M-02</td>
+<td>MQTTX 每 5 秒一条 <code>{"voltage":350.0,...,"state":0}</code></td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>M-03</td>
+<td><code>{"req_id":"m03","result":"ok","values":[3500,0,500,0,1750]}</code></td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>M-04</td>
+<td>write 回 ok，回读 0x3000 由 3500 → 3000</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>M-05</td>
+<td>a/b/c 三条 <code>req_id</code> 一一对应</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>M-06</td>
+<td>停 EMQX 60 秒，<code>ok=39, err=0</code> 采集不停；重启后自动重连</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>M-07</td>
+<td>坏 JSON → <code>bad json ... dropped</code>；<code>addr=70000</code> → <code>invalid_param</code></td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>M-08</td>
+<td>1061 字节拆成 1000+61 两片，均 <code>fragmented payload ... dropped</code></td>
+<td>PASS</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="七-遗留事项">七、遗留事项</h2>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>状态</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>app</code> 分区余量仅 4%</td>
+<td><strong>已解决</strong></td>
+<td>改用 <code>CONFIG_PARTITION_TABLE_SINGLE_APP_LARGE</code>，app 分区 1MB → 1500K，余量 4% → <strong>35%</strong>（531KB），已重新烧录验证</td>
+</tr>
+<tr>
+<td>M-07 超时项证据</td>
+<td><strong>已补齐</strong></td>
+<td>用不存在的站号 <code>slave=9</code> 造超时，3 次重试共 660ms，返回 <code>modbus_timeout</code>，采集不受影响</td>
+</tr>
+<tr>
+<td><code>cmd_probe.py</code> 偶发丢应答</td>
+<td><strong>已修复</strong></td>
+<td>subscribe 与 publish 分母，改在 SUBACK 回调里发请求；同时支持第 5 参数指定站号</td>
+</tr>
+<tr>
+<td><code>git push</code> 未成功</td>
+<td>待网络</td>
+<td>代理返回 502、直连 443 超时，属环境限制</td>
+</tr>
+</tbody>
+</table>
+<h3 id="分区扩容说明">分区扩容说明</h3>
+<p>原来用 IDF 默认的 <code>partitions_singleapp.csv</code>，app 只有 1MB（0x100000）。阶段二固件已占 1,004,560 字节，只剩 4%。</p>
+<p>改用 <code>CONFIG_PARTITION_TABLE_SINGLE_APP_LARGE=y</code> 后的布局：</p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>SubType</th>
+<th>Offset</th>
+<th>Size</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>nvs</td>
+<td>data</td>
+<td>nvs</td>
+<td>0x9000</td>
+<td>24K</td>
+</tr>
+<tr>
+<td>phy_init</td>
+<td>data</td>
+<td>phy</td>
+<td>0xf000</td>
+<td>4K</td>
+</tr>
+<tr>
+<td>factory</td>
+<td>app</td>
+<td>factory</td>
+<td>0x10000</td>
+<td><strong>1500K</strong></td>
+</tr>
+</tbody>
+</table>
+<p><code>nvs</code> 位置没变（仍在 0x9000），所以<strong>已有 Wi-Fi 凭据不会丢</strong>，不用重新配网。</p>
+<p>代价：分区表内容变了，必须把 <code>partition-table.bin</code> 一起重烧，只烧 app 不够。</p>
+<h3 id="git-push-为何推不上去">git push 为何推不上去</h3>
+<p>两条路都试过了：</p>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>走代理   → CONNECT tunnel failed, response 502
+绕代理直连 → Failed to connect to github.com:443 after 21102 ms
+</code></pre></div>
+
+<p>不是仓库配置问题，是这台机器到 GitHub 的网络不通。等网络恢复后在<strong>普通终端</strong>（非沙箱）执行：</p>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code><span style="color: #007020">cd </span>D:\work\espidf_projects\inverter_collector
+git push origin main
+git push origin stage1 stage2
+</code></pre></div>
+
+<h3 id="emqx-运行模式">EMQX 运行模式</h3>
+<p>当前 Broker 是 <code>emqx.cmd console</code> 启的（PID 24140，监听 0.0.0.0:1883）。这个实例在非交互会话里启不了新窗口，所以只能用 console。</p>
+<p>验收前想换回 <code>start</code>：先 <code>emqx.cmd stop</code>，再到<strong>桌面的 cmd 窗口</strong>双击 <code>emqx.cmd start</code>（需要窗口站，沙箱里开不出来）。或者干脆继续用 console，功能完全一样，只是会占一个终端。</p>
+    </article>
+  </main>
+</div>
+<button id="top" title="回到顶部">↑</button>
+
+<script>
+(function () {
+  var q = document.getElementById('q');
+  var links = Array.prototype.slice.call(document.querySelectorAll('.toc a'));
+  var hits = document.getElementById('hits');
+
+  function filter() {
+    var s = q.value.trim().toLowerCase();
+    var n = 0;
+    links.forEach(function (a) {
+      var hit = !s || a.textContent.toLowerCase().indexOf(s) !== -1;
+      a.parentElement.style.display = hit ? '' : 'none';
+      if (hit && s) n++;
+    });
+    // 标题被隐藏时，父级 ul 可能全空，这里不管，保持简单
+    hits.textContent = s ? ('匹配 ' + n + ' 项') : ('共 ' + links.length + ' 个标题');
+  }
+  q.addEventListener('input', filter);
+  q.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') {
+      var first = links.filter(function (a) { return a.parentElement.style.display !== 'none'; })[0];
+      if (first) first.click();
+    }
+  });
+  filter();
+
+  // 代码块：加语言标签和复制按钮
+  document.querySelectorAll('pre').forEach(function (pre) {
+    var code = pre.querySelector('code');
+    if (!code) return;
+    var box = document.createElement('div');
+    box.className = 'codebox';
+    pre.parentNode.insertBefore(box, pre);
+    box.appendChild(pre);
+
+    var m = /language-([\w+-]+)/.exec(code.className || '');
+    if (m) {
+      var tag = document.createElement('span');
+      tag.className = 'language-tag';
+      tag.textContent = m[1];
+      box.appendChild(tag);
+    }
+
+    var btn = document.createElement('button');
+    btn.className = 'copy';
+    btn.textContent = '复制';
+    btn.addEventListener('click', function () {
+      var txt = code.innerText;
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(txt);
+      } else {
+        var ta = document.createElement('textarea');
+        ta.value = txt; document.body.appendChild(ta); ta.select();
+        document.execCommand('copy'); ta.remove();
+      }
+      btn.textContent = '已复制';
+      btn.classList.add('done');
+      setTimeout(function () { btn.textContent = '复制'; btn.classList.remove('done'); }, 1400);
+    });
+    box.appendChild(btn);
+  });
+
+  // 图片丢失时给个提示，而不是留一个破图标
+  document.querySelectorAll('img').forEach(function (img) {
+    img.addEventListener('error', function () {
+      var miss = document.createElement('span');
+      miss.className = 'imgmiss';
+      miss.textContent = '图片缺失：' + (img.getAttribute('src') || '');
+      img.replaceWith(miss);
+    });
+  });
+
+  // 目录高亮当前章节
+  var heads = Array.prototype.slice.call(document.querySelectorAll('article h2, article h3, article h4'));
+  function onScroll() {
+    var y = window.scrollY + 90;
+    var cur = null;
+    heads.forEach(function (h) { if (h.offsetTop <= y) cur = h; });
+    links.forEach(function (a) {
+      a.classList.toggle('active', cur && a.getAttribute('href') === '#' + cur.id);
+    });
+    document.getElementById('top').classList.toggle('show', window.scrollY > 400);
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+
+  document.getElementById('top').addEventListener('click', function () {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+})();
+</script>
+</body>
+</html>

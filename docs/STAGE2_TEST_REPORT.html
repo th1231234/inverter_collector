@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>阶段二测试报告</title>
+<title>阶段二验收测试报告</title>
 <style>
 :root {
   --bg: #ffffff;
@@ -230,7 +230,7 @@ hr { border: none; border-top: 1px solid var(--border); margin: 30px 0; }
 <body>
 <div id="wrap">
   <aside>
-    <h1>阶段二测试报告</h1>
+    <h1>阶段二验收测试报告</h1>
     <input id="q" type="search" placeholder="搜索目录标题…" autocomplete="off">
     <div id="hits"></div>
     <div class="toc">
@@ -254,7 +254,10 @@ hr { border: none; border-top: 1px solid var(--border); margin: 30px 0; }
 <li><a href="#4-2-总线互斥锁">4.2 总线互斥锁</a></li>
 </ul>
 </li>
-<li><a href="#5-遗留事项">5. 遗留事项</a></li>
+<li><a href="#5-遗留事项">5. 遗留事项</a><ul>
+<li><a href="#5-1-分区扩容与复烧记录-16-15">5.1 分区扩容与复烧记录（16:15）</a></li>
+</ul>
+</li>
 <li><a href="#6-复现步骤">6. 复现步骤</a></li>
 <li><a href="#7-结论">7. 结论</a></li>
 </ul>
@@ -529,8 +532,8 @@ I (566148) MQTT: data -&gt; &quot;dev/intern01/data&quot;: {&quot;voltage&quot;:
 </tr>
 <tr>
 <td>从机无响应</td>
-<td>停 Modbus Slave</td>
-<td><code>{"result":"error","msg":"modbus_timeout"}</code></td>
+<td><code>slave=9</code>（不存在的站号）</td>
+<td><code>{"req_id":"t1","result":"error","msg":"modbus_timeout"}</code></td>
 </tr>
 <tr>
 <td>从机拒绝</td>
@@ -541,6 +544,24 @@ I (566148) MQTT: data -&gt; &quot;dev/intern01/data&quot;: {&quot;voltage&quot;:
 </table>
 <p><code>msg</code> 取值由 <code>modbus_last_exception()</code> 区分：异常码 0 判超时，非 0 按 0x01~0x04 翻译。</p>
 <p>坏 JSON 之后设备未重启，后续正常请求照常响应（<code>resp ok: req_id=after</code>）。</p>
+<p><strong>超时项的取证方式</strong>：不必真的去关 Modbus Slave，改发一个从机上不存在的站号（9）即可——从机会直接忽略非本站的帧，效果与掉线一致，且采集任务不受影响。</p>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>python cmd_probe.py read 12288 5 t1 9      <span style="color: #60A0B0; font-style: italic"># 第 5 个参数是 slave</span>
+</code></pre></div>
+
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>W (6154698) MODBUS: func 0x03 timeout (attempt 1/3)
+W (6154918) MODBUS: func 0x03 timeout (attempt 2/3)
+W (6155138) MODBUS: func 0x03 timeout (attempt 3/3)
+E (6155138) MQTT_CMD: read failed: req_id=t1 addr=0x3000 msg=modbus_timeout
+W (6155138) MQTT_CMD: resp error: req_id=t1 msg=modbus_timeout
+I (6158278) MAIN: Stats: ok=1151, err=0
+</code></pre></div>
+
+<p>三个要点：</p>
+<ol>
+<li><strong>3 次重试，每次 220ms</strong>，共 660ms 后放弃（<code>attempt 1/3</code> → <code>3/3</code>）</li>
+<li>应答在最后一次重试的同一毫秒内发出，没有额外等待</li>
+<li>同一时段采集任务 <code>ok=1150 → 1153</code> 继续增长，<strong>err=0</strong>：命令超时完全不影响周期采集（两者抢总线锁，但锁会排队而不是让采集失败）</li>
+</ol>
 <h3 id="m-08-边界安全与分片">M-08 边界安全与分片</h3>
 <p><strong>测试 1：1KB 超长载荷</strong></p>
 <p>发送 1061 字节 JSON 到 <code>dev/intern01/read</code>，串口（<code>serial_log6.txt</code>）：</p>
@@ -627,25 +648,106 @@ resp 发布（QoS 1）
 <thead>
 <tr>
 <th>项</th>
+<th>状态</th>
 <th>说明</th>
-<th>影响</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>app 分区余量 4%</td>
-<td><code>1,004,560 / 1,048,576</code> 字节</td>
-<td>阶段三引入 protobuf-c 前需扩大分区表</td>
+<td><strong>已解决</strong></td>
+<td>改用 <code>SINGLE_APP_LARGE</code> 分区，1500K 中用 1,004,560 字节，余量 35%（531KB）</td>
 </tr>
 <tr>
 <td>M-07 超时项</td>
-<td>停 Modbus Slave 后查询，需人工操作配合</td>
-<td>不影响功能，建议补齐证据</td>
+<td><strong>已补齐</strong></td>
+<td>用不存在的站号 <code>slave=9</code> 造超时，见第 3 章 M-07</td>
 </tr>
 <tr>
 <td><code>req_id</code> 重复投递</td>
-<td>QoS 1 语义允许，端到端可能出现同一条 resp 两次</td>
-<td>已实测单次触发只产生一条</td>
+<td>已知特性</td>
+<td>QoS 1 语义允许，端到端可能出现同一条 resp 两次；实测单次触发只产生一条</td>
+</tr>
+</tbody>
+</table>
+<h3 id="5-1-分区扩容与复烧记录-16-15">5.1 分区扩容与复烧记录（16:15）</h3>
+<p>原分区（IDF 默认 <code>partitions_singleapp.csv</code>）app 只有 1MB，1,004,560 字节占 96%，阶段三加 protobuf-c 会溢出。</p>
+<p>改用 <code>CONFIG_PARTITION_TABLE_SINGLE_APP_LARGE=y</code> 后的布局：</p>
+<table>
+<thead>
+<tr>
+<th>Label</th>
+<th>Usage</th>
+<th>Offset</th>
+<th>Length</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>nvs</td>
+<td>WiFi data</td>
+<td>0x009000</td>
+<td>0x006000</td>
+</tr>
+<tr>
+<td>phy_init</td>
+<td>RF data</td>
+<td>0x00f000</td>
+<td>0x001000</td>
+</tr>
+<tr>
+<td>factory</td>
+<td>factory app</td>
+<td>0x010000</td>
+<td><strong>0x177000（1500K）</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>nvs 偏移未变（仍是 0x9000）</strong>，所以已有 Wi-Fi 凭据保留，复烧后不用重新配网。</p>
+<p>复烧内容与校验：</p>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>0x00000  bootloader        20,960 bytes   Hash of data verified
+0x08000  partition-table    3,072 bytes   Hash of data verified
+0x10000  app            1,004,560 bytes   Hash of data verified
+</code></pre></div>
+
+<p>复位后启动日志确认：</p>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>rst:0x1 (POWERON),boot:0xc (SPI_FAST_FLASH_BOOT)
+I (72) boot:  2 factory          factory app      00 00 00010000 00177000
+I (261) boot: Loaded app from partition at offset 0x10000
+I (1838) MAIN: network ready, IP=192.168.137.140
+I (1868) MQTT: broker connected: mqtt://192.168.137.1:1883
+I (1878) MQTT: subscribed &quot;dev/intern01/read&quot; (msg_id=39334), &quot;dev/intern01/write&quot; (msg_id=62560)
+</code></pre></div>
+
+<p>四点值得注意：</p>
+<ol>
+<li><code>boot:0xc</code> 是正常 flash 启动（<code>0x4</code> 才是卡在下载模式）</li>
+<li>分区表长度 <code>0x177000</code> 与预期一致</li>
+<li><strong>网络就绪只用了 1838ms</strong>（上次冷启动是 7608ms）——nvs 里凭据还在，省掉了扫描和四次握手</li>
+<li>烧录后命令通道立即可用：<code>{"req_id":"post","result":"ok","values":[3000,0,800,0,1750]}</code></li>
+</ol>
+<p>分区余量前后对比：</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>分区大小</th>
+<th>固件占用</th>
+<th>余量</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>扩容前</td>
+<td>1,048,576</td>
+<td>1,004,560（96%）</td>
+<td>44,016 字节（4%）</td>
+</tr>
+<tr>
+<td><strong>扩容后</strong></td>
+<td><strong>1,536,768</strong></td>
+<td>1,004,560（65%）</td>
+<td><strong>531,440 字节（35%）</strong></td>
 </tr>
 </tbody>
 </table>

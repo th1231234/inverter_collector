@@ -171,12 +171,33 @@ I (566148) MQTT: data -> "dev/intern01/data": {"voltage":350.0,...,"state":0}
 | 坏 JSON | `{"req_id":` | 串口 `bad json on dev/intern01/read, dropped`，**无 resp**（取不到 req_id，无法组包） |
 | 地址越界 | `addr=70000` | `{"req_id":"m07a","result":"error","msg":"invalid_param"}` |
 | 数量超限 | `num=999` | `{"req_id":"m07b","result":"error","msg":"invalid_param"}` |
-| 从机无响应 | 停 Modbus Slave | `{"result":"error","msg":"modbus_timeout"}` |
+| 从机无响应 | `slave=9`（不存在的站号） | `{"req_id":"t1","result":"error","msg":"modbus_timeout"}` |
 | 从机拒绝 | 非法功能码/地址 | `modbus_illegal_function` / `modbus_illegal_address` |
 
 `msg` 取值由 `modbus_last_exception()` 区分：异常码 0 判超时，非 0 按 0x01~0x04 翻译。
 
 坏 JSON 之后设备未重启，后续正常请求照常响应（`resp ok: req_id=after`）。
+
+**超时项的取证方式**：不必真的去关 Modbus Slave，改发一个从机上不存在的站号（9）即可——从机会直接忽略非本站的帧，效果与掉线一致，且采集任务不受影响。
+
+```powershell
+python cmd_probe.py read 12288 5 t1 9      # 第 5 个参数是 slave
+```
+
+```text
+W (6154698) MODBUS: func 0x03 timeout (attempt 1/3)
+W (6154918) MODBUS: func 0x03 timeout (attempt 2/3)
+W (6155138) MODBUS: func 0x03 timeout (attempt 3/3)
+E (6155138) MQTT_CMD: read failed: req_id=t1 addr=0x3000 msg=modbus_timeout
+W (6155138) MQTT_CMD: resp error: req_id=t1 msg=modbus_timeout
+I (6158278) MAIN: Stats: ok=1151, err=0
+```
+
+三个要点：
+
+1. **3 次重试，每次 220ms**，共 660ms 后放弃（`attempt 1/3` → `3/3`）
+2. 应答在最后一次重试的同一毫秒内发出，没有额外等待
+3. 同一时段采集任务 `ok=1150 → 1153` 继续增长，**err=0**：命令超时完全不影响周期采集（两者抢总线锁，但锁会排队而不是让采集失败）
 
 ### M-08 边界安全与分片
 
@@ -252,11 +273,58 @@ static bool modbus_transact(...)
 
 ## 5. 遗留事项
 
-| 项 | 说明 | 影响 |
+| 项 | 状态 | 说明 |
 |---|---|---|
-| app 分区余量 4% | `1,004,560 / 1,048,576` 字节 | 阶段三引入 protobuf-c 前需扩大分区表 |
-| M-07 超时项 | 停 Modbus Slave 后查询，需人工操作配合 | 不影响功能，建议补齐证据 |
-| `req_id` 重复投递 | QoS 1 语义允许，端到端可能出现同一条 resp 两次 | 已实测单次触发只产生一条 |
+| app 分区余量 4% | **已解决** | 改用 `SINGLE_APP_LARGE` 分区，1500K 中用 1,004,560 字节，余量 35%（531KB） |
+| M-07 超时项 | **已补齐** | 用不存在的站号 `slave=9` 造超时，见第 3 章 M-07 |
+| `req_id` 重复投递 | 已知特性 | QoS 1 语义允许，端到端可能出现同一条 resp 两次；实测单次触发只产生一条 |
+
+### 5.1 分区扩容与复烧记录（16:15）
+
+原分区（IDF 默认 `partitions_singleapp.csv`）app 只有 1MB，1,004,560 字节占 96%，阶段三加 protobuf-c 会溢出。
+
+改用 `CONFIG_PARTITION_TABLE_SINGLE_APP_LARGE=y` 后的布局：
+
+| Label | Usage | Offset | Length |
+|---|---|---|---|
+| nvs | WiFi data | 0x009000 | 0x006000 |
+| phy_init | RF data | 0x00f000 | 0x001000 |
+| factory | factory app | 0x010000 | **0x177000（1500K）** |
+
+**nvs 偏移未变（仍是 0x9000）**，所以已有 Wi-Fi 凭据保留，复烧后不用重新配网。
+
+复烧内容与校验：
+
+```text
+0x00000  bootloader        20,960 bytes   Hash of data verified
+0x08000  partition-table    3,072 bytes   Hash of data verified
+0x10000  app            1,004,560 bytes   Hash of data verified
+```
+
+复位后启动日志确认：
+
+```text
+rst:0x1 (POWERON),boot:0xc (SPI_FAST_FLASH_BOOT)
+I (72) boot:  2 factory          factory app      00 00 00010000 00177000
+I (261) boot: Loaded app from partition at offset 0x10000
+I (1838) MAIN: network ready, IP=192.168.137.140
+I (1868) MQTT: broker connected: mqtt://192.168.137.1:1883
+I (1878) MQTT: subscribed "dev/intern01/read" (msg_id=39334), "dev/intern01/write" (msg_id=62560)
+```
+
+四点值得注意：
+
+1. `boot:0xc` 是正常 flash 启动（`0x4` 才是卡在下载模式）
+2. 分区表长度 `0x177000` 与预期一致
+3. **网络就绪只用了 1838ms**（上次冷启动是 7608ms）——nvs 里凭据还在，省掉了扫描和四次握手
+4. 烧录后命令通道立即可用：`{"req_id":"post","result":"ok","values":[3000,0,800,0,1750]}`
+
+分区余量前后对比：
+
+| | 分区大小 | 固件占用 | 余量 |
+|---|---|---|---|
+| 扩容前 | 1,048,576 | 1,004,560（96%） | 44,016 字节（4%） |
+| **扩容后** | **1,536,768** | 1,004,560（65%） | **531,440 字节（35%）** |
 
 ---
 

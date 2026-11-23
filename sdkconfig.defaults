@@ -13,9 +13,13 @@
 # 目标芯片
 CONFIG_IDF_TARGET="esp32c3"
 
-# Flash 容量 4MB，单 app 分区
+# Flash 容量 4MB，单 app 大分区（1.5MB）
+# 默认的单 app 分区只有 1MB，阶段二固件已占 96%，阶段三加 protobuf-c 会超。
+# SINGLE_APP_LARGE 是 IDF 自带的扩展布局：app 1.5MB + storage 1MB，正好铺满 4MB。
 CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
 CONFIG_ESPTOOLPY_FLASHSIZE="4MB"
+CONFIG_PARTITION_TABLE_SINGLE_APP_LARGE=y
+CONFIG_PARTITION_TABLE_FILENAME="partitions_singleapp_large.csv"
 
 # ---- Wi-Fi 参数（占位符，必须改成真实值）----
 CONFIG_WIFI_SSID="YOUR_SSID"
