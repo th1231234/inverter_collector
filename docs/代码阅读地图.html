@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>代码阅读地图 · 哪些必须掌握</title>
+<style>
+:root {
+  --bg: #ffffff;
+  --bg-soft: #f7f8fa;
+  --bg-code: #f6f8fa;
+  --fg: #1f2328;
+  --fg-muted: #656d76;
+  --border: #d8dee4;
+  --accent: #0969da;
+  --accent-soft: #ddf4ff;
+  --maxw: 880px;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: -apple-system, "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+  font-size: 15px;
+  line-height: 1.75;
+}
+#wrap { display: flex; align-items: flex-start; }
+
+/* ---------- 左侧目录 ---------- */
+aside {
+  position: sticky;
+  top: 0;
+  width: 290px;
+  min-width: 290px;
+  height: 100vh;
+  overflow-y: auto;
+  border-right: 1px solid var(--border);
+  background: var(--bg-soft);
+  padding: 18px 14px 60px;
+}
+aside h1 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 12px 4px;
+  letter-spacing: .2px;
+}
+#q {
+  width: 100%;
+  padding: 7px 10px;
+  font-size: 13px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: #fff;
+  margin-bottom: 14px;
+  outline: none;
+  font-family: inherit;
+}
+#q:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+#hits { font-size: 12px; color: var(--fg-muted); margin: -6px 0 10px 4px; min-height: 16px; }
+
+.toc { font-size: 13px; }
+.toc ul { list-style: none; margin: 0; padding-left: 12px; }
+.toc > ul { padding-left: 0; }
+.toc li { margin: 1px 0; }
+.toc a {
+  display: block;
+  padding: 3px 8px;
+  color: var(--fg);
+  text-decoration: none;
+  border-radius: 5px;
+  border-left: 2px solid transparent;
+}
+.toc a:hover { background: #eef1f4; }
+.toc a.active { background: var(--accent-soft); color: var(--accent); border-left-color: var(--accent); font-weight: 500; }
+.toc ul ul { font-size: 12.5px; color: var(--fg-muted); }
+
+/* ---------- 右侧正文 ---------- */
+main { flex: 1; min-width: 0; }
+article {
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 40px 48px 120px;
+}
+article h1, article h2, article h3, article h4, article h5, article h6 {
+  line-height: 1.4;
+  margin: 1.9em 0 .7em;
+  scroll-margin-top: 20px;
+}
+article h1 { font-size: 30px; font-weight: 650; margin-top: 0; padding-bottom: .3em; border-bottom: 1px solid var(--border); }
+article h2 { font-size: 23px; font-weight: 650; padding-bottom: .3em; border-bottom: 1px solid var(--border); }
+article h3 { font-size: 18px; font-weight: 600; color: #1f2328; }
+article h4 { font-size: 16px; font-weight: 600; color: #24292f; }
+article h5, article h6 { font-size: 14.5px; font-weight: 600; color: var(--fg-muted); }
+article p { margin: 0 0 15px; }
+article a { color: var(--accent); text-decoration: none; }
+article a:hover { text-decoration: underline; }
+article ul, article ol { padding-left: 26px; margin: 0 0 15px; }
+article li { margin: 4px 0; }
+article strong { font-weight: 600; }
+
+blockquote {
+  margin: 0 0 15px;
+  padding: 8px 16px;
+  color: var(--fg-muted);
+  border-left: 3px solid var(--border);
+  background: var(--bg-soft);
+  border-radius: 0 6px 6px 0;
+}
+
+/* 行内代码 */
+article code {
+  font-family: "Cascadia Code", Consolas, "Courier New", monospace;
+  font-size: 13px;
+  background: rgba(175,184,193,.2);
+  padding: 2px 6px;
+  border-radius: 5px;
+}
+
+/* 代码块 */
+.codebox { position: relative; margin: 0 0 18px; }
+.codebox pre {
+  margin: 0;
+  padding: 14px 16px;
+  overflow-x: auto;
+  background: var(--bg-code);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+.codebox pre code {
+  background: none;
+  padding: 0;
+  font-size: 12.5px;
+  white-space: pre;
+}
+.codebox .copy {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 11.5px;
+  padding: 3px 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--fg-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .15s;
+  font-family: inherit;
+}
+.codebox:hover .copy { opacity: 1; }
+.codebox .copy.done { color: #1a7f37; border-color: #1a7f37; }
+code.language-tag {
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  font-size: 10.5px;
+  color: #8b949e;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  pointer-events: none;
+}
+.codebox pre { padding-top: 30px; }
+
+/* 表格 */
+table {
+  border-collapse: collapse;
+  margin: 0 0 18px;
+  font-size: 14px;
+  width: auto;
+  max-width: 100%;
+  display: block;
+  overflow-x: auto;
+}
+th, td {
+  border: 1px solid var(--border);
+  padding: 7px 13px;
+  text-align: left;
+  vertical-align: top;
+}
+th { background: var(--bg-soft); font-weight: 600; white-space: nowrap; }
+tbody tr:nth-child(even) { background: #fbfcfd; }
+
+img {
+  max-width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin: 6px 0;
+}
+.imgmiss {
+  display: inline-block;
+  padding: 10px 14px;
+  background: #fff8e6;
+  border: 1px dashed #d4a72c;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #7a5c00;
+}
+
+hr { border: none; border-top: 1px solid var(--border); margin: 30px 0; }
+
+#top {
+  position: fixed;
+  right: 26px;
+  bottom: 26px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--fg-muted);
+  cursor: pointer;
+  font-size: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.08);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s;
+}
+#top.show { opacity: 1; pointer-events: auto; }
+
+@media (max-width: 900px) {
+  aside { display: none; }
+  article { padding: 24px 18px 90px; }
+}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <aside>
+    <h1>代码阅读地图 · 哪些必须掌握</h1>
+    <input id="q" type="search" placeholder="搜索目录标题…" autocomplete="off">
+    <div id="hits"></div>
+    <div class="toc">
+<ul>
+<li><a href="#代码阅读地图">代码阅读地图</a><ul>
+<li><a href="#一-先分清-看不懂-的三种情况">一、先分清「看不懂」的三种情况</a></li>
+<li><a href="#二-阅读路线-五个函数-按顺序看">二、阅读路线：五个函数，按顺序看</a></li>
+<li><a href="#三-四档分级清单">三、四档分级清单</a><ul>
+<li><a href="#第一档-必须能手写出来-约-200-行">第一档：必须能手写出来（约 200 行）</a></li>
+<li><a href="#第二档-必须能读懂-知道在哪改-约-300-行">第二档：必须能读懂，知道在哪改（约 300 行）</a></li>
+<li><a href="#第三档-了解概念即可-用时查文档-约-800-行">第三档：了解概念即可，用时查文档（约 800 行）</a></li>
+<li><a href="#第四档-直接让-ai-写">第四档：直接让 AI 写</a></li>
+</ul>
+</li>
+<li><a href="#四-四个必须吃透的函数-逐行拆解">四、四个必须吃透的函数，逐行拆解</a><ul>
+<li><a href="#4-1-modbus_transact_locked-全工程的核心">4.1 modbus_transact_locked() —— 全工程的核心</a></li>
+<li><a href="#4-2-modbus_read_regs-响应怎么解成数值">4.2 modbus_read_regs() —— 响应怎么解成数值</a></li>
+<li><a href="#4-3-collector_task-的主循环">4.3 collector_task() 的主循环</a></li>
+<li><a href="#4-4-mqtt_cmd_handle_message-三层校验的顺序">4.4 mqtt_cmd_handle_message() —— 三层校验的顺序</a></li>
+</ul>
+</li>
+<li><a href="#五-五个自测题">五、五个自测题</a><ul>
+<li><a href="#q1-波特率从-9600-改成-115200-要改几处">Q1：波特率从 9600 改成 115200，要改几处？</a></li>
+<li><a href="#q2-日志出现-short-frame-got-5-expect-7-说明什么">Q2：日志出现 short frame: got 5 expect 7 说明什么？</a></li>
+<li><a href="#q3-为什么发之前要-uart_flush_input">Q3：为什么发之前要 uart_flush_input？</a></li>
+<li><a href="#q4-采集任务和命令任务同时读串口会怎样">Q4：采集任务和命令任务同时读串口会怎样？</a></li>
+<li><a href="#q5-为什么-mqtt-回调里不能直接读-modbus">Q5：为什么 MQTT 回调里不能直接读 Modbus？</a></li>
+</ul>
+</li>
+<li><a href="#六-建议的节奏">六、建议的节奏</a></li>
+<li><a href="#七-附录-怎么让-ai-写第四档的代码">七、附录：怎么让 AI 写第四档的代码</a></li>
+</ul>
+</li>
+</ul>
+</div>
+
+  </aside>
+  <main>
+    <article id="content">
+<h1 id="代码阅读地图">代码阅读地图</h1>
+<blockquote>
+<p>给刚接手这个工程的人：哪些代码必须吃透，哪些看懂了就行，哪些可以直接交给 AI 写。</p>
+<p>配套文档：<code>STAGE2_实现总结.md</code>（架构与函数清单）、<code>MQTT概念澄清.md</code>（协议概念）</p>
+</blockquote>
+<hr />
+<h2 id="一-先分清-看不懂-的三种情况">一、先分清「看不懂」的三种情况</h2>
+<p>大部分人说自己看不懂代码，其实混了三件不同的事：</p>
+<table>
+<thead>
+<tr>
+<th>类型</th>
+<th>典型表现</th>
+<th>本质</th>
+<th>该怎么办</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>不认识 API</strong></td>
+<td>"<code>uart_read_bytes</code> 四个参数是啥意思"</td>
+<td>缺函数签名知识</td>
+<td>查文档，<strong>不算能力问题</strong></td>
+</tr>
+<tr>
+<td><strong>不认识语法</strong></td>
+<td>"<code>(rx[1] &amp; 0x80)</code> 在干嘛"</td>
+<td>缺 C 语言基础</td>
+<td>补位运算、指针、数组</td>
+</tr>
+<tr>
+<td><strong>不认识业务意图</strong></td>
+<td>"为什么发之前要清空缓冲？"</td>
+<td>缺领域经验</td>
+<td><strong>这才是要花时间的地方</strong></td>
+</tr>
+</tbody>
+</table>
+<p>这个工程 2403 行，其中 60% 是 API 调用和配置，看一眼文档就懂。真正需要"想明白"的只有 300~400 行。</p>
+<p><strong>所以不要从头到尾读</strong>。按下面的顺序走，两小时能有整体把握。</p>
+<hr />
+<h2 id="二-阅读路线-五个函数-按顺序看">二、阅读路线：五个函数，按顺序看</h2>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>① app_main()                 inverter_collector.c:161   看清初始化顺序
+② modbus_init()              modbus.c:124               串口怎么配
+③ collector_task()           inverter_collector.c:53    每 5 秒干什么
+④ modbus_transact_locked()   modbus.c:197               一次读写的完整生命
+⑤ mqtt_cmd_handle_message()  mqtt_cmd.c:353             命令怎么进来（可选）
+</code></pre></div>
+
+<p>这四个编号是<strong>阅读顺序</strong>，不是调用关系。先建立整体感，再钻细节——反过来会卡在 <code>wifi.c</code> 那 150 行模板代码里出不来。</p>
+<hr />
+<h2 id="三-四档分级清单">三、四档分级清单</h2>
+<h3 id="第一档-必须能手写出来-约-200-行">第一档：必须能手写出来（约 200 行）</h3>
+<p>标准：合上电脑，能写出功能等价的实现。</p>
+<table>
+<thead>
+<tr>
+<th>代码</th>
+<th>位置</th>
+<th>为什么必须</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>UART 初始化</td>
+<td><code>modbus.c:124</code> ~ <code>166</code></td>
+<td><code>uart_driver_install</code> + <code>uart_param_config</code> + <code>uart_set_pin</code> 三件套。换任何 MCU 都是这套逻辑，只是函数名不同</td>
+</tr>
+<tr>
+<td>组帧</td>
+<td><code>modbus.c:300</code> <code>modbus_build_read_request</code></td>
+<td>帧结构（地址 + 功能码 + 数据 + CRC）是协议根本，错一个字节就通信失败</td>
+</tr>
+<tr>
+<td>CRC16</td>
+<td><code>modbus.c:102</code></td>
+<td>不用背算法，但要能解释：初值 0xFFFF、多项式 0xA001（0x8005 反转）、结果低字节在前</td>
+</tr>
+<tr>
+<td>收发事务</td>
+<td><code>modbus.c:197</code> <code>modbus_transact_locked</code></td>
+<td><strong>全工程最值钱的 70 行</strong></td>
+</tr>
+<tr>
+<td>响应解析</td>
+<td><code>modbus.c:368</code> <code>modbus_read_regs</code></td>
+<td>大端解码 <code>(rx[3+i*2] &lt;&lt; 8) | rx[4+i*2]</code>，以及 byte count 校验</td>
+</tr>
+<tr>
+<td>周期任务骨架</td>
+<td><code>inverter_collector.c:71</code> 的 while</td>
+<td>采集类项目的标准写法</td>
+</tr>
+<tr>
+<td>FreeRTOS 三件套</td>
+<td>全工程</td>
+<td><code>xTaskCreate</code> / <code>xQueueSend</code> / <code>xSemaphoreTake</code> 覆盖 90% 场景</td>
+</tr>
+</tbody>
+</table>
+<h3 id="第二档-必须能读懂-知道在哪改-约-300-行">第二档：必须能读懂，知道在哪改（约 300 行）</h3>
+<p>标准：同事问"为什么这么写"能答上来，要改参数知道去哪个文件。</p>
+<table>
+<thead>
+<tr>
+<th>内容</th>
+<th>位置</th>
+<th>读到什么程度</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>QoS / retain / 真实长度</td>
+<td><code>mqtt_report.c:156</code></td>
+<td><code>publish(topic, payload, len, 1, 0)</code> 五个参数各是什么，尤其 <code>len</code> 为什么不能传 0</td>
+</tr>
+<tr>
+<td>三层校验的顺序</td>
+<td><code>mqtt_cmd.c:353</code> → <code>260</code></td>
+<td><strong>先判长度、再判主题、最后判字段</strong>，顺序不能换</td>
+</tr>
+<tr>
+<td>分片投递判断</td>
+<td><code>mqtt_report.c:70</code></td>
+<td><code>total_data_len != data_len</code> 意味着什么</td>
+</tr>
+<tr>
+<td>回调不做耗时操作</td>
+<td><code>mqtt_cmd.h</code> 注释</td>
+<td>这是一条纪律，比代码本身重要</td>
+</tr>
+<tr>
+<td>总线互斥的粒度</td>
+<td><code>modbus.c:274</code></td>
+<td>为什么锁要包住整个事务，只锁发送不行</td>
+</tr>
+<tr>
+<td>配置项</td>
+<td><code>Kconfig.projbuild</code></td>
+<td>改工号、Broker、上报通道在哪</td>
+</tr>
+</tbody>
+</table>
+<h3 id="第三档-了解概念即可-用时查文档-约-800-行">第三档：了解概念即可，用时查文档（约 800 行）</h3>
+<table>
+<thead>
+<tr>
+<th>内容</th>
+<th>行数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>wifi.c</code></td>
+<td>150</td>
+<td>全是模板：事件组 + 重试 + 指数退避。照抄，改 SSID</td>
+</tr>
+<tr>
+<td><code>udp.c</code> / <code>tcp.c</code></td>
+<td>218</td>
+<td>socket 调用固定套路</td>
+</tr>
+<tr>
+<td>cJSON</td>
+<td>—</td>
+<td><code>CreateObject</code> / <code>AddStringToObject</code> / <code>Parse</code> / <code>Delete</code> 四个够用</td>
+</tr>
+<tr>
+<td>esp-mqtt 事件字段</td>
+<td>—</td>
+<td><code>event-&gt;topic</code>、<code>data_len</code>、<code>error_handle</code>，用哪个查哪个</td>
+</tr>
+<tr>
+<td>CMakeLists / Kconfig 语法</td>
+<td>—</td>
+<td>知道 <code>SRCS</code> 加文件、<code>REQUIRES</code> 会覆盖默认依赖即可</td>
+</tr>
+</tbody>
+</table>
+<h3 id="第四档-直接让-ai-写">第四档：直接让 AI 写</h3>
+<p>共同特征：<strong>一次成型、不碰硬件时序、出错有明确报错</strong>。</p>
+<table>
+<thead>
+<tr>
+<th>内容</th>
+<th>行数</th>
+<th>理由</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>modbus_selftest.c</code></td>
+<td>368</td>
+<td>一次性调试工具，跑通了就不再看</td>
+</tr>
+<tr>
+<td><code>tools/mqtt_lab/*.py</code></td>
+<td>400+</td>
+<td>测试脚本，看懂输入输出即可</td>
+</tr>
+<tr>
+<td><code>tools/build_run.py</code>、<code>md2html.py</code></td>
+<td>450</td>
+<td>绕过环境坑的工具，不是业务代码</td>
+</tr>
+<tr>
+<td>文档、注释、README</td>
+<td>—</td>
+<td>让 AI 起草，你负责核对事实</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="四-四个必须吃透的函数-逐行拆解">四、四个必须吃透的函数，逐行拆解</h2>
+<h3 id="4-1-modbus_transact_locked-全工程的核心">4.1 <code>modbus_transact_locked()</code> —— 全工程的核心</h3>
+<p><code>modbus.c:197</code>，70 行。所有功能码都复用它，搞懂这 70 行，Modbus 就通了。</p>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code><span style="color: #007020; font-weight: bold">static</span><span style="color: #BBB"> </span><span style="color: #902000">bool</span><span style="color: #BBB"> </span><span style="color: #06287E">modbus_transact_locked</span>(<span style="color: #902000">uint8_t</span><span style="color: #BBB"> </span>slave,<span style="color: #BBB"> </span><span style="color: #902000">uint8_t</span><span style="color: #BBB"> </span>func,
+<span style="color: #BBB">                                   </span><span style="color: #007020; font-weight: bold">const</span><span style="color: #BBB"> </span><span style="color: #902000">uint8_t</span><span style="color: #BBB"> </span><span style="color: #666">*</span>tx,<span style="color: #BBB"> </span><span style="color: #902000">int</span><span style="color: #BBB"> </span>tx_len,
+<span style="color: #BBB">                                   </span><span style="color: #902000">uint8_t</span><span style="color: #BBB"> </span><span style="color: #666">*</span>rx,<span style="color: #BBB"> </span><span style="color: #902000">int</span><span style="color: #BBB"> </span>rx_cap,<span style="color: #BBB"> </span><span style="color: #902000">int</span><span style="color: #BBB"> </span>rx_expect,<span style="color: #BBB"> </span><span style="color: #902000">int</span><span style="color: #BBB"> </span><span style="color: #666">*</span>rx_len)
+{
+<span style="color: #BBB">    </span>s_last_exception<span style="color: #BBB"> </span><span style="color: #666">=</span><span style="color: #BBB"> </span><span style="color: #40A070">0</span>;
+
+<span style="color: #BBB">    </span><span style="color: #007020; font-weight: bold">for</span><span style="color: #BBB"> </span>(<span style="color: #902000">int</span><span style="color: #BBB"> </span>attempt<span style="color: #BBB"> </span><span style="color: #666">=</span><span style="color: #BBB"> </span><span style="color: #40A070">0</span>;<span style="color: #BBB"> </span>attempt<span style="color: #BBB"> </span><span style="color: #666">&lt;=</span><span style="color: #BBB"> </span>MODBUS_RETRY_COUNT;<span style="color: #BBB"> </span>attempt<span style="color: #666">++</span>)<span style="color: #BBB"> </span>{
+
+<span style="color: #BBB">        </span><span style="color: #007020; font-weight: bold">if</span><span style="color: #BBB"> </span>(attempt<span style="color: #BBB"> </span><span style="color: #666">&gt;</span><span style="color: #BBB"> </span><span style="color: #40A070">0</span>)<span style="color: #BBB"> </span>{
+<span style="color: #BBB">            </span>vTaskDelay(pdMS_TO_TICKS(MODBUS_RETRY_GAP_MS));
+<span style="color: #BBB">        </span>}
+
+<span style="color: #BBB">        </span>uart_flush_input(MODBUS_UART_PORT);<span style="color: #BBB">          </span><span style="color: #60A0B0; font-style: italic">/* ① 清残留 */</span>
+
+<span style="color: #BBB">        </span>modbus_log_hex(<span style="color: #4070A0">&quot;TX&quot;</span>,<span style="color: #BBB"> </span>tx,<span style="color: #BBB"> </span>tx_len);
+<span style="color: #BBB">        </span>uart_write_bytes(MODBUS_UART_PORT,<span style="color: #BBB"> </span>(<span style="color: #007020; font-weight: bold">const</span><span style="color: #BBB"> </span><span style="color: #902000">char</span><span style="color: #BBB"> </span><span style="color: #666">*</span>)tx,<span style="color: #BBB"> </span>tx_len);<span style="color: #BBB">   </span><span style="color: #60A0B0; font-style: italic">/* ② 发 */</span>
+
+<span style="color: #BBB">        </span><span style="color: #902000">int</span><span style="color: #BBB"> </span>len<span style="color: #BBB"> </span><span style="color: #666">=</span><span style="color: #BBB"> </span>uart_read_bytes(MODBUS_UART_PORT,<span style="color: #BBB"> </span>rx,<span style="color: #BBB"> </span>rx_cap,
+<span style="color: #BBB">                                  </span>pdMS_TO_TICKS(MODBUS_TIMEOUT_MS));<span style="color: #BBB">    </span><span style="color: #60A0B0; font-style: italic">/* ③ 等 */</span>
+<span style="color: #BBB">        </span><span style="color: #007020; font-weight: bold">if</span><span style="color: #BBB"> </span>(len<span style="color: #BBB"> </span><span style="color: #666">&lt;=</span><span style="color: #BBB"> </span><span style="color: #40A070">0</span>)<span style="color: #BBB"> </span>{
+<span style="color: #BBB">            </span>ESP_LOGW(TAG,<span style="color: #BBB"> </span><span style="color: #4070A0">&quot;func 0x%02X timeout (attempt %d/%d)&quot;</span>,<span style="color: #BBB"> </span>...);
+<span style="color: #BBB">            </span><span style="color: #007020; font-weight: bold">continue</span>;
+<span style="color: #BBB">        </span>}
+
+<span style="color: #BBB">        </span>modbus_log_hex(<span style="color: #4070A0">&quot;RX&quot;</span>,<span style="color: #BBB"> </span>rx,<span style="color: #BBB"> </span>len);
+
+<span style="color: #BBB">        </span><span style="color: #60A0B0; font-style: italic">/* ④ 异常应答：功能码最高位置 1，长度固定 5 */</span>
+<span style="color: #BBB">        </span><span style="color: #007020; font-weight: bold">if</span><span style="color: #BBB"> </span>(len<span style="color: #BBB"> </span><span style="color: #666">&gt;=</span><span style="color: #BBB"> </span><span style="color: #40A070">5</span><span style="color: #BBB"> </span><span style="color: #666">&amp;&amp;</span><span style="color: #BBB"> </span>(rx[<span style="color: #40A070">1</span>]<span style="color: #BBB"> </span><span style="color: #666">&amp;</span><span style="color: #BBB"> </span><span style="color: #40A070">0x80</span>))<span style="color: #BBB"> </span>{
+<span style="color: #BBB">            </span>s_last_exception<span style="color: #BBB"> </span><span style="color: #666">=</span><span style="color: #BBB"> </span>rx[<span style="color: #40A070">2</span>];
+<span style="color: #BBB">            </span>ESP_LOGE(TAG,<span style="color: #BBB"> </span><span style="color: #4070A0">&quot;slave exception: code=0x%02X (%s)&quot;</span>,<span style="color: #BBB"> </span>...);
+<span style="color: #BBB">            </span><span style="color: #007020; font-weight: bold">return</span><span style="color: #BBB"> </span><span style="color: #007020">false</span>;<span style="color: #BBB">                              </span><span style="color: #60A0B0; font-style: italic">/* 从机明确拒绝，重试无意义 */</span>
+<span style="color: #BBB">        </span>}
+
+<span style="color: #BBB">        </span><span style="color: #007020; font-weight: bold">if</span><span style="color: #BBB"> </span>(len<span style="color: #BBB"> </span><span style="color: #666">&lt;</span><span style="color: #BBB"> </span>rx_expect)<span style="color: #BBB"> </span>{<span style="color: #BBB"> </span><span style="color: #007020; font-weight: bold">continue</span>;<span style="color: #BBB"> </span>}<span style="color: #BBB">              </span><span style="color: #60A0B0; font-style: italic">/* ⑤ 帧被截断 */</span>
+
+<span style="color: #BBB">        </span><span style="color: #007020; font-weight: bold">if</span><span style="color: #BBB"> </span>(rx[<span style="color: #40A070">0</span>]<span style="color: #BBB"> </span><span style="color: #666">!=</span><span style="color: #BBB"> </span>slave<span style="color: #BBB"> </span><span style="color: #666">||</span><span style="color: #BBB"> </span>rx[<span style="color: #40A070">1</span>]<span style="color: #BBB"> </span><span style="color: #666">!=</span><span style="color: #BBB"> </span>func)<span style="color: #BBB"> </span>{<span style="color: #BBB"> </span><span style="color: #007020; font-weight: bold">continue</span>;<span style="color: #BBB"> </span>}<span style="color: #BBB">   </span><span style="color: #60A0B0; font-style: italic">/* ⑥ 地址/功能码不符 */</span>
+
+<span style="color: #BBB">        </span><span style="color: #902000">uint16_t</span><span style="color: #BBB"> </span>rx_crc<span style="color: #BBB"> </span><span style="color: #666">=</span><span style="color: #BBB"> </span>(<span style="color: #902000">uint16_t</span>)rx[len<span style="color: #BBB"> </span><span style="color: #666">-</span><span style="color: #BBB"> </span><span style="color: #40A070">2</span>]<span style="color: #BBB"> </span><span style="color: #666">|</span><span style="color: #BBB"> </span>((<span style="color: #902000">uint16_t</span>)rx[len<span style="color: #BBB"> </span><span style="color: #666">-</span><span style="color: #BBB"> </span><span style="color: #40A070">1</span>]<span style="color: #BBB"> </span><span style="color: #666">&lt;&lt;</span><span style="color: #BBB"> </span><span style="color: #40A070">8</span>);
+<span style="color: #BBB">        </span><span style="color: #902000">uint16_t</span><span style="color: #BBB"> </span>calc<span style="color: #BBB">   </span><span style="color: #666">=</span><span style="color: #BBB"> </span>modbus_crc16(rx,<span style="color: #BBB"> </span>(<span style="color: #902000">uint16_t</span>)(len<span style="color: #BBB"> </span><span style="color: #666">-</span><span style="color: #BBB"> </span><span style="color: #40A070">2</span>));
+<span style="color: #BBB">        </span><span style="color: #007020; font-weight: bold">if</span><span style="color: #BBB"> </span>(calc<span style="color: #BBB"> </span><span style="color: #666">!=</span><span style="color: #BBB"> </span>rx_crc)<span style="color: #BBB"> </span>{<span style="color: #BBB"> </span><span style="color: #007020; font-weight: bold">continue</span>;<span style="color: #BBB"> </span>}<span style="color: #BBB">               </span><span style="color: #60A0B0; font-style: italic">/* ⑦ CRC 校验 */</span>
+
+<span style="color: #BBB">        </span><span style="color: #666">*</span>rx_len<span style="color: #BBB"> </span><span style="color: #666">=</span><span style="color: #BBB"> </span>len;
+<span style="color: #BBB">        </span><span style="color: #007020; font-weight: bold">return</span><span style="color: #BBB"> </span><span style="color: #007020">true</span>;
+<span style="color: #BBB">    </span>}
+
+<span style="color: #BBB">    </span><span style="color: #007020; font-weight: bold">return</span><span style="color: #BBB"> </span><span style="color: #007020">false</span>;
+}
+</code></pre></div>
+
+<p><strong>七个动作，每一个都有理由：</strong></p>
+<table>
+<thead>
+<tr>
+<th>步骤</th>
+<th>为什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>① <code>uart_flush_input</code></td>
+<td>清掉上一轮超时后迟到的应答。不清的话，这次读到的可能是<strong>上次</strong>的数据——CRC 能过、数值是旧的，这种 bug 最难查，因为日志看起来一切正常</td>
+</tr>
+<tr>
+<td>② 先打日志再发</td>
+<td>出问题时能看到"我发了什么"，顺序反了就看不到失败的帧</td>
+</tr>
+<tr>
+<td>③ 带超时读</td>
+<td>不能死等。9600 波特率下一帧 8 字节约 9ms，超时设 200ms 已很宽松</td>
+</tr>
+<tr>
+<td>④ 异常帧先判</td>
+<td>从机拒绝时回的是 5 字节短帧，功能码 OR 0x80。这种情况<strong>重试没用</strong>，要立即返回并把异常码存下来</td>
+</tr>
+<tr>
+<td>⑤ 长度检查</td>
+<td>收到的比预期短，说明帧被截断（线路干扰、波特率不匹配）</td>
+</tr>
+<tr>
+<td>⑥ 头校验</td>
+<td>总线上可能有别的设备的应答串进来</td>
+</tr>
+<tr>
+<td>⑦ CRC 校验</td>
+<td>最后一道防线。前面都过了但 CRC 错，说明传输过程中有比特翻转</td>
+</tr>
+</tbody>
+</table>
+<p><strong>关键设计</strong>：<code>continue</code> 表示"这次失败，再试一次"，<code>return false</code> 表示"彻底失败"。第 ④ 步用 <code>return</code>，其他用 <code>continue</code>——这个区分很多人第一次读会忽略。</p>
+<h3 id="4-2-modbus_read_regs-响应怎么解成数值">4.2 <code>modbus_read_regs()</code> —— 响应怎么解成数值</h3>
+<p><code>modbus.c:368</code></p>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code><span style="color: #902000">int</span><span style="color: #BBB"> </span>tx_len<span style="color: #BBB">    </span><span style="color: #666">=</span><span style="color: #BBB"> </span>modbus_build_read_request(slave,<span style="color: #BBB"> </span>func,<span style="color: #BBB"> </span>addr,<span style="color: #BBB"> </span>num,<span style="color: #BBB"> </span>tx);
+<span style="color: #902000">int</span><span style="color: #BBB"> </span>rx_expect<span style="color: #BBB"> </span><span style="color: #666">=</span><span style="color: #BBB"> </span><span style="color: #40A070">5</span><span style="color: #BBB"> </span><span style="color: #666">+</span><span style="color: #BBB"> </span>num<span style="color: #BBB"> </span><span style="color: #666">*</span><span style="color: #BBB"> </span><span style="color: #40A070">2</span>;<span style="color: #BBB">      </span><span style="color: #60A0B0; font-style: italic">/* 地址1 + 功能码1 + 字节数1 + 数据2n + CRC2 */</span>
+
+<span style="color: #007020; font-weight: bold">if</span><span style="color: #BBB"> </span>(<span style="color: #666">!</span>modbus_transact(...))<span style="color: #BBB"> </span>{<span style="color: #BBB"> </span><span style="color: #007020; font-weight: bold">return</span><span style="color: #BBB"> </span><span style="color: #007020">false</span>;<span style="color: #BBB"> </span>}
+
+<span style="color: #007020; font-weight: bold">if</span><span style="color: #BBB"> </span>(rx[<span style="color: #40A070">2</span>]<span style="color: #BBB"> </span><span style="color: #666">!=</span><span style="color: #BBB"> </span>num<span style="color: #BBB"> </span><span style="color: #666">*</span><span style="color: #BBB"> </span><span style="color: #40A070">2</span>)<span style="color: #BBB"> </span>{<span style="color: #BBB">           </span><span style="color: #60A0B0; font-style: italic">/* 从机回报的字节数必须对得上 */</span>
+<span style="color: #BBB">    </span><span style="color: #007020; font-weight: bold">return</span><span style="color: #BBB"> </span><span style="color: #007020">false</span>;
+}
+
+<span style="color: #007020; font-weight: bold">for</span><span style="color: #BBB"> </span>(<span style="color: #902000">uint16_t</span><span style="color: #BBB"> </span>i<span style="color: #BBB"> </span><span style="color: #666">=</span><span style="color: #BBB"> </span><span style="color: #40A070">0</span>;<span style="color: #BBB"> </span>i<span style="color: #BBB"> </span><span style="color: #666">&lt;</span><span style="color: #BBB"> </span>num;<span style="color: #BBB"> </span>i<span style="color: #666">++</span>)<span style="color: #BBB"> </span>{
+<span style="color: #BBB">    </span><span style="color: #60A0B0; font-style: italic">/* 大端序：高字节在前 */</span>
+<span style="color: #BBB">    </span>regs[i]<span style="color: #BBB"> </span><span style="color: #666">=</span><span style="color: #BBB"> </span>(<span style="color: #902000">uint16_t</span>)(((<span style="color: #902000">uint16_t</span>)rx[<span style="color: #40A070">3</span><span style="color: #BBB"> </span><span style="color: #666">+</span><span style="color: #BBB"> </span>i<span style="color: #BBB"> </span><span style="color: #666">*</span><span style="color: #BBB"> </span><span style="color: #40A070">2</span>]<span style="color: #BBB"> </span><span style="color: #666">&lt;&lt;</span><span style="color: #BBB"> </span><span style="color: #40A070">8</span>)<span style="color: #BBB"> </span><span style="color: #666">|</span><span style="color: #BBB"> </span>rx[<span style="color: #40A070">4</span><span style="color: #BBB"> </span><span style="color: #666">+</span><span style="color: #BBB"> </span>i<span style="color: #BBB"> </span><span style="color: #666">*</span><span style="color: #BBB"> </span><span style="color: #40A070">2</span>]);
+}
+</code></pre></div>
+
+<p>响应帧布局：</p>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>rx[0]      从机地址
+rx[1]      功能码
+rx[2]      后续数据字节数 = num × 2
+rx[3..4]   第 1 个寄存器（高字节在前）
+rx[5..6]   第 2 个寄存器
+...
+rx[len-2]  CRC 低字节
+rx[len-1]  CRC 高字节
+</code></pre></div>
+
+<p>注意 <strong>CRC 是低字节在前，寄存器数据是高字节在前</strong>——两个相反的字节序，这是 Modbus 最反直觉的地方。</p>
+<h3 id="4-3-collector_task-的主循环">4.3 <code>collector_task()</code> 的主循环</h3>
+<p><code>inverter_collector.c:71</code></p>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code><span style="color: #007020; font-weight: bold">while</span><span style="color: #BBB"> </span>(<span style="color: #40A070">1</span>)<span style="color: #BBB"> </span>{
+<span style="color: #BBB">    </span><span style="color: #902000">bool</span><span style="color: #BBB"> </span>wifi_ok<span style="color: #BBB"> </span><span style="color: #666">=</span><span style="color: #BBB"> </span>wifi_is_connected();
+
+<span style="color: #BBB">    </span><span style="color: #902000">bool</span><span style="color: #BBB"> </span>ok<span style="color: #BBB"> </span><span style="color: #666">=</span><span style="color: #BBB"> </span>modbus_read_registers(REG_BASE,<span style="color: #BBB"> </span>REG_COUNT,<span style="color: #BBB"> </span>regs);
+
+<span style="color: #BBB">    </span><span style="color: #007020; font-weight: bold">if</span><span style="color: #BBB"> </span>(ok)<span style="color: #BBB"> </span>{
+<span style="color: #BBB">        </span>ok_cnt<span style="color: #666">++</span>;
+<span style="color: #BBB">        </span>consecutive_ok<span style="color: #666">++</span>;
+<span style="color: #BBB">        </span>voltage<span style="color: #BBB"> </span><span style="color: #666">=</span><span style="color: #BBB"> </span>regs[IDX_VOLTAGE]<span style="color: #BBB"> </span><span style="color: #666">/</span><span style="color: #BBB"> </span><span style="color: #40A070">10.0f</span>;<span style="color: #BBB">      </span><span style="color: #60A0B0; font-style: italic">/* 整数除法会丢精度，必须 .0f */</span>
+<span style="color: #BBB">        </span>...
+<span style="color: #BBB">        </span><span style="color: #007020; font-weight: bold">if</span><span style="color: #BBB"> </span>(<span style="color: #666">!</span>reporting<span style="color: #BBB"> </span><span style="color: #666">&amp;&amp;</span><span style="color: #BBB"> </span>consecutive_ok<span style="color: #BBB"> </span><span style="color: #666">&gt;=</span><span style="color: #BBB"> </span>REPORT_START_THRESHOLD)<span style="color: #BBB"> </span>{
+<span style="color: #BBB">            </span>reporting<span style="color: #BBB"> </span><span style="color: #666">=</span><span style="color: #BBB"> </span><span style="color: #007020">true</span>;<span style="color: #BBB">                      </span><span style="color: #60A0B0; font-style: italic">/* 连续成功 3 次才开始上报 */</span>
+<span style="color: #BBB">        </span>}
+<span style="color: #BBB">        </span><span style="color: #007020; font-weight: bold">if</span><span style="color: #BBB"> </span>(reporting<span style="color: #BBB"> </span><span style="color: #666">&amp;&amp;</span><span style="color: #BBB"> </span>wifi_ok)<span style="color: #BBB"> </span>{
+<span style="color: #BBB">            </span>mqtt_report_send_json(voltage,<span style="color: #BBB"> </span>current,<span style="color: #BBB"> </span>power,<span style="color: #BBB"> </span><span style="color: #40A070">0</span>);
+<span style="color: #BBB">        </span>}
+<span style="color: #BBB">    </span>}<span style="color: #BBB"> </span><span style="color: #007020; font-weight: bold">else</span><span style="color: #BBB"> </span>{
+<span style="color: #BBB">        </span>err_cnt<span style="color: #666">++</span>;
+<span style="color: #BBB">        </span>consecutive_ok<span style="color: #BBB"> </span><span style="color: #666">=</span><span style="color: #BBB"> </span><span style="color: #40A070">0</span>;
+<span style="color: #BBB">        </span><span style="color: #60A0B0; font-style: italic">/* 读失败也要上报，带 state=1 和上次的数值 */</span>
+<span style="color: #BBB">        </span><span style="color: #007020; font-weight: bold">if</span><span style="color: #BBB"> </span>(reporting<span style="color: #BBB"> </span><span style="color: #666">&amp;&amp;</span><span style="color: #BBB"> </span>wifi_ok<span style="color: #BBB"> </span><span style="color: #666">&amp;&amp;</span><span style="color: #BBB"> </span>has_last<span style="color: #BBB"> </span><span style="color: #666">&amp;&amp;</span><span style="color: #BBB"> </span>mqtt_report_is_connected())<span style="color: #BBB"> </span>{
+<span style="color: #BBB">            </span>mqtt_report_send_json(last_voltage,<span style="color: #BBB"> </span>last_current,<span style="color: #BBB"> </span>last_power,<span style="color: #BBB"> </span><span style="color: #40A070">1</span>);
+<span style="color: #BBB">        </span>}
+<span style="color: #BBB">    </span>}
+
+<span style="color: #BBB">    </span>vTaskDelay(pdMS_TO_TICKS(COLLECT_PERIOD_MS));
+}
+</code></pre></div>
+
+<p>三个设计点：</p>
+<ol>
+<li><strong><code>consecutive_ok &gt;= 3</code> 才上报</strong>：开机时前几秒的读可能因从机还没就绪而失败，等稳定了再发数据，避免上位机收到一串 0</li>
+<li><strong><code>/ 10.0f</code> 不是 <code>/ 10</code></strong>：整数除法会截断，<code>3500/10</code> 得 350 没问题，但 <code>3505/10</code> 得 350 而不是 350.5</li>
+<li><strong>失败也上报</strong>：不带 <code>state=1</code> 的话，上位机分不清"设备掉线"和"网络抖动"</li>
+</ol>
+<h3 id="4-4-mqtt_cmd_handle_message-三层校验的顺序">4.4 <code>mqtt_cmd_handle_message()</code> —— 三层校验的顺序</h3>
+<p><code>mqtt_cmd.c:353</code></p>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code><span style="color: #007020; font-weight: bold">if</span><span style="color: #BBB"> </span>(data_len<span style="color: #BBB"> </span><span style="color: #666">&gt;=</span><span style="color: #BBB"> </span>CMD_MAX_PAYLOAD)<span style="color: #BBB"> </span>{<span style="color: #BBB"> </span><span style="color: #007020; font-weight: bold">return</span>;<span style="color: #BBB"> </span>}<span style="color: #BBB">        </span><span style="color: #60A0B0; font-style: italic">/* ① 先判长度 */</span>
+
+<span style="color: #007020; font-weight: bold">if</span><span style="color: #BBB"> </span>(topic_is(topic,<span style="color: #BBB"> </span>topic_len,<span style="color: #BBB"> </span>MQTT_TOPIC_WRITE))<span style="color: #BBB"> </span>{<span style="color: #BBB"> </span>is_write<span style="color: #BBB"> </span><span style="color: #666">=</span><span style="color: #BBB"> </span><span style="color: #007020">true</span>;<span style="color: #BBB"> </span>}
+<span style="color: #007020; font-weight: bold">else</span><span style="color: #BBB"> </span><span style="color: #007020; font-weight: bold">if</span><span style="color: #BBB"> </span>(topic_is(topic,<span style="color: #BBB"> </span>topic_len,<span style="color: #BBB"> </span>MQTT_TOPIC_READ))<span style="color: #BBB"> </span>{<span style="color: #BBB"> </span>is_write<span style="color: #BBB"> </span><span style="color: #666">=</span><span style="color: #BBB"> </span><span style="color: #007020">false</span>;<span style="color: #BBB"> </span>}
+<span style="color: #007020; font-weight: bold">else</span><span style="color: #BBB"> </span>{<span style="color: #BBB"> </span><span style="color: #007020; font-weight: bold">return</span>;<span style="color: #BBB"> </span>}<span style="color: #BBB">                                     </span><span style="color: #60A0B0; font-style: italic">/* ② 再判主题 */</span>
+
+<span style="color: #902000">char</span><span style="color: #BBB"> </span>payload[CMD_MAX_PAYLOAD];
+memcpy(payload,<span style="color: #BBB"> </span>data,<span style="color: #BBB"> </span>data_len);
+payload[data_len]<span style="color: #BBB"> </span><span style="color: #666">=</span><span style="color: #BBB"> </span><span style="color: #4070A0">&#39;\0&#39;</span>;<span style="color: #BBB">                            </span><span style="color: #60A0B0; font-style: italic">/* ③ 补 &#39;\0&#39; */</span>
+
+handle_cmd(is_write,<span style="color: #BBB"> </span>payload);<span style="color: #BBB">                       </span><span style="color: #60A0B0; font-style: italic">/* ④ 进业务层解析 */</span>
+</code></pre></div>
+
+<p>顺序不能换的三个理由：</p>
+<ul>
+<li><strong>长度必须最先判</strong>：缓冲区是栈上定长的，判晚了就已经溢出了</li>
+<li><strong>主题必须按长度比</strong>：<code>event-&gt;topic</code> 不以 <code>\0</code> 结尾，用 <code>strcmp</code> 会读越界</li>
+<li><strong><code>payload[data_len] = '\0'</code> 必须补</strong>：MQTT 载荷是二进制安全的字节流，cJSON 需要 <code>\0</code> 才能解析</li>
+</ul>
+<hr />
+<h2 id="五-五个自测题">五、五个自测题</h2>
+<p>能全答上来，第一档就算过了。</p>
+<h3 id="q1-波特率从-9600-改成-115200-要改几处">Q1：波特率从 9600 改成 115200，要改几处？</h3>
+<p><strong>答</strong>：固件里一处——<code>modbus.c</code> 的 <code>MODBUS_BAUDRATE</code> 宏（或 menuconfig）。</p>
+<p>但<strong>从机那侧也必须改</strong>，否则一直超时。这是最常被忽略的一半：两台设备波特率不一致时，收到的全是乱码，CRC 必然失败，日志刷 <code>CRC mismatch</code> 或 <code>timeout</code>。</p>
+<h3 id="q2-日志出现-short-frame-got-5-expect-7-说明什么">Q2：日志出现 <code>short frame: got 5 expect 7</code> 说明什么？</h3>
+<p><strong>答</strong>：收到 5 字节，预期 7 字节。</p>
+<p>可能原因：
+- 帧被截断（线路干扰、接触不良）
+- 从机功能码和请求不一致，回了异常帧（但异常帧会先被第 ④ 步拦截，所以排除）
+- 波特率不匹配导致采样点错位，丢字节</p>
+<p>排查顺序：先确认波特率一致 → 再查接线 → 最后考虑加终端电阻。</p>
+<h3 id="q3-为什么发之前要-uart_flush_input">Q3：为什么发之前要 <code>uart_flush_input</code>？</h3>
+<p><strong>答</strong>：清掉上一轮超时后迟到的应答。</p>
+<p>举个具体场景：第 1 次请求超时了，但应答在第 250ms 才到（超过 200ms 超时）。第 2 次请求发出去后，<code>uart_read_bytes</code> 读到的第一条正是<strong>第 1 次的旧应答</strong>。</p>
+<p>如果不清缓冲，这次会"成功"——CRC 对、长度对、地址对，但数值是上一次的。上位机看到数据正常，实际是错的。</p>
+<h3 id="q4-采集任务和命令任务同时读串口会怎样">Q4：采集任务和命令任务同时读串口会怎样？</h3>
+<p><strong>答</strong>：两帧交错，CRC 必然失败，表现为<strong>随机</strong>的 <code>read failed</code>（不是每次必现，取决于时序）。</p>
+<p>因为 <code>uart_write_bytes</code> 是非阻塞的，采集任务发完帧去读的时候，命令任务可能正插进来发自己的帧。两个请求的应答混在一起，接收缓冲里就是交错的字节流。</p>
+<p>解决：总线互斥量，且<strong>锁的粒度必须覆盖整个事务</strong>（清缓冲 → 发 → 收 → 校验 → 重试）。只锁发送是无效的，因为接收阶段同样共享缓冲区。</p>
+<h3 id="q5-为什么-mqtt-回调里不能直接读-modbus">Q5：为什么 MQTT 回调里不能直接读 Modbus？</h3>
+<p><strong>答</strong>：会把连接拖断。</p>
+<p>算一下时间：</p>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>一次读最坏 = 200ms 超时 × 3 次尝试 + 2 × 20ms 重试间隔 ≈ 640ms
+keepalive  = 60 秒，Broker 在 1.5 倍（90 秒）无心跳才判定离线
+</code></pre></div>
+
+<p>单看 640ms 远小于 90 秒，似乎没问题。但 MQTT 回调运行在 esp-mqtt 自己的任务里，<strong>回调阻塞期间它无法处理任何收包</strong>。如果上位机连续发 10 条命令，就是 6.4 秒不响应心跳；网络再有点抖动，很容易累积到被踢。</p>
+<p>而且回调阻塞还会导致：
+- 收不到 PUBACK → Broker 重传 → 更多消息堆积
+- 订阅的其他主题全部积压</p>
+<p>所以回调只做"传达室"：<strong>验长度 → 判主题 → 解析 → 入队</strong>，立刻返回（&lt;1ms）。真正的 Modbus 读写放在 <code>cmd_task</code> 里慢慢等超时。</p>
+<hr />
+<h2 id="六-建议的节奏">六、建议的节奏</h2>
+<table>
+<thead>
+<tr>
+<th>时间</th>
+<th>做什么</th>
+<th>完成标准</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>第 1 天</td>
+<td>读路线图 ①②③</td>
+<td>能在纸上画出"每 5 秒发生什么"</td>
+</tr>
+<tr>
+<td>第 2 天</td>
+<td>精读 ④ 那 70 行</td>
+<td>在 TX/RX 日志上逐字节对照帧结构</td>
+</tr>
+<tr>
+<td>第 3 天</td>
+<td>回答五个自测题</td>
+<td>答不上就回去看对应代码</td>
+</tr>
+<tr>
+<td>第 4-5 天</td>
+<td>自己写最小 demo</td>
+<td>只做 UART + CRC + 读一个寄存器，<strong>不抄代码</strong></td>
+</tr>
+</tbody>
+</table>
+<p>最后一步最关键。<strong>能默写一个最小可运行版本，比读懂一万行更有用</strong>——现场出问题时，你需要一个能对比的参照物。</p>
+<hr />
+<h2 id="七-附录-怎么让-ai-写第四档的代码">七、附录：怎么让 AI 写第四档的代码</h2>
+<p>关键不是"帮我写个函数"，而是<strong>把约束说清楚</strong>。模板：</p>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>用 ESP-IDF 5.5 写一个 [功能]，要求：
+
+输入：[参数类型、取值范围]
+输出：[返回值含义、错误码]
+约束：
+  - 不使用动态内存（或说明在哪里释放）
+  - 所有输入必须校验边界，越界返回错误而不是断言
+  - 解析失败时不要 return 0，要返回明确错误码
+  - 日志用 ESP_LOGx，TAG 叫 XXX
+不要做什么：[例如不要在这里做耗时 IO]
+</code></pre></div>
+
+<p>好的请求 vs 差的请求：</p>
+<table>
+<thead>
+<tr>
+<th>差</th>
+<th>好</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>"写个 Modbus 读函数"</td>
+<td>"用 ESP-IDF 写功能码 03 的读保持寄存器，输入从机地址 1~247、寄存器地址 0~65535、数量 1~16，返回 bool，失败要区分超时和从机异常码"</td>
+</tr>
+</tbody>
+</table>
+<p><strong>判断标准</strong>：如果生成的代码你没法验收（不知道对不对），说明需求描述本身有问题，先想清楚再让 AI 写。</p>
+<p>反过来，<strong>第一档的代码不要让 AI 代写</strong>。不是怕它写错，而是那些细节（为什么要 flush、为什么异常帧要 return 而不是 continue）只有自己踩过坑才记得住，而现场排查靠的正是这些记忆。</p>
+    </article>
+  </main>
+</div>
+<button id="top" title="回到顶部">↑</button>
+
+<script>
+(function () {
+  var q = document.getElementById('q');
+  var links = Array.prototype.slice.call(document.querySelectorAll('.toc a'));
+  var hits = document.getElementById('hits');
+
+  function filter() {
+    var s = q.value.trim().toLowerCase();
+    var n = 0;
+    links.forEach(function (a) {
+      var hit = !s || a.textContent.toLowerCase().indexOf(s) !== -1;
+      a.parentElement.style.display = hit ? '' : 'none';
+      if (hit && s) n++;
+    });
+    // 标题被隐藏时，父级 ul 可能全空，这里不管，保持简单
+    hits.textContent = s ? ('匹配 ' + n + ' 项') : ('共 ' + links.length + ' 个标题');
+  }
+  q.addEventListener('input', filter);
+  q.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') {
+      var first = links.filter(function (a) { return a.parentElement.style.display !== 'none'; })[0];
+      if (first) first.click();
+    }
+  });
+  filter();
+
+  // 代码块：加语言标签和复制按钮
+  document.querySelectorAll('pre').forEach(function (pre) {
+    var code = pre.querySelector('code');
+    if (!code) return;
+    var box = document.createElement('div');
+    box.className = 'codebox';
+    pre.parentNode.insertBefore(box, pre);
+    box.appendChild(pre);
+
+    var m = /language-([\w+-]+)/.exec(code.className || '');
+    if (m) {
+      var tag = document.createElement('span');
+      tag.className = 'language-tag';
+      tag.textContent = m[1];
+      box.appendChild(tag);
+    }
+
+    var btn = document.createElement('button');
+    btn.className = 'copy';
+    btn.textContent = '复制';
+    btn.addEventListener('click', function () {
+      var txt = code.innerText;
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(txt);
+      } else {
+        var ta = document.createElement('textarea');
+        ta.value = txt; document.body.appendChild(ta); ta.select();
+        document.execCommand('copy'); ta.remove();
+      }
+      btn.textContent = '已复制';
+      btn.classList.add('done');
+      setTimeout(function () { btn.textContent = '复制'; btn.classList.remove('done'); }, 1400);
+    });
+    box.appendChild(btn);
+  });
+
+  // 图片丢失时给个提示，而不是留一个破图标
+  document.querySelectorAll('img').forEach(function (img) {
+    img.addEventListener('error', function () {
+      var miss = document.createElement('span');
+      miss.className = 'imgmiss';
+      miss.textContent = '图片缺失：' + (img.getAttribute('src') || '');
+      img.replaceWith(miss);
+    });
+  });
+
+  // 目录高亮当前章节
+  var heads = Array.prototype.slice.call(document.querySelectorAll('article h2, article h3, article h4'));
+  function onScroll() {
+    var y = window.scrollY + 90;
+    var cur = null;
+    heads.forEach(function (h) { if (h.offsetTop <= y) cur = h; });
+    links.forEach(function (a) {
+      a.classList.toggle('active', cur && a.getAttribute('href') === '#' + cur.id);
+    });
+    document.getElementById('top').classList.toggle('show', window.scrollY > 400);
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+
+  document.getElementById('top').addEventListener('click', function () {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+})();
+</script>
+</body>
+</html>
