@@ -65,8 +65,9 @@ static void mqtt_event_handler(void *args, esp_event_base_t base,
         /* 超过接收缓冲的载荷会被 esp-mqtt 拆成多片，每片单独回调一次，
          * 此时 data_len 只是分片长度、total_data_len 才是整条长度。
          *
-         * 必须整条丢弃：分片拼不成合法 JSON，但残片有可能恰好被解析成功，
-         * 从而执行一条本该被拒绝的命令。只留一条日志便于排查。 */
+         * 必须整条丢弃：protobuf 是变长编码，残片有一定概率被解出一条
+         * 字段错位的报文（长度字段恰好落在合法范围），从而执行一条本来
+         * 该被拒绝的命令。宁可丢一条也不能执行错的。 */
         if (event->total_data_len != event->data_len) {
             ESP_LOGW(TAG, "fragmented payload (%d/%d bytes), dropped",
                      event->data_len, event->total_data_len);
@@ -135,6 +136,11 @@ bool mqtt_report_init(void)
         return false;
     }
 
+    /* Telemetry.ts_ms 要真实 Unix 毫秒，先起 SNTP 对时。
+     * 放在这里是因为调用方已等到 Wi-Fi 拿到 IP；对时是异步的，
+     * 没对上之前 ts_ms 退化为开机毫秒，不阻塞上报。 */
+    codec_time_start();
+
     err = esp_mqtt_client_start(s_client);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "start failed: %s", esp_err_to_name(err));
@@ -172,23 +178,29 @@ bool mqtt_report_publish(const char *topic, const char *payload, int len)
     return true;
 }
 
-bool mqtt_report_send_json(float voltage, float current, float power, int state)
+bool mqtt_report_send_telemetry(uint32_t seq, int32_t state,
+                                const codec_metric_t *pts, int n)
 {
-    char payload[128];
+    uint8_t *buf  = NULL;
+    size_t   len  = 0;
 
-    int len = snprintf(payload, sizeof(payload),
-                       "{\"voltage\":%.1f,\"current\":%.2f,\"power\":%.0f,\"state\":%d}",
-                       voltage, current, power, state);
-    if (len <= 0 || len >= (int)sizeof(payload)) {
-        ESP_LOGE(TAG, "payload too long: %d", len);
+    if (!codec_encode_telemetry(seq, state, pts, n, &buf, &len)) {
+        ESP_LOGE(TAG, "encode telemetry failed (seq=%u)", (unsigned)seq);
         return false;
     }
 
-    if (!mqtt_report_publish(MQTT_TOPIC_DATA, payload, len)) {
+    /* 关键：传 len 而不是 strlen((char *)buf)。
+     * 报文里 raw=0 / addr=0 都会产生 0x00 字节，按字符串量长度会截断，
+     * 对端 unpack 直接失败 —— 这就是 P-05「二进制完整性」要验的点。 */
+    bool ok = mqtt_report_publish(MQTT_TOPIC_DATA, (const char *)buf, (int)len);
+    codec_free(buf);
+
+    if (!ok) {
         return false;
     }
 
-    ESP_LOGI(TAG, "data -> \"%s\": %s", MQTT_TOPIC_DATA, payload);
+    ESP_LOGI(TAG, "data -> \"%s\": seq=%u state=%d %d metric(s), %u bytes",
+             MQTT_TOPIC_DATA, (unsigned)seq, (int)state, n, (unsigned)len);
     return true;
 }
 

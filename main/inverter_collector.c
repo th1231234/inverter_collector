@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdbool.h>
+#include <string.h>
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -25,6 +26,10 @@
 #define REPORT_CHANNEL_NAME   "UDP"
 #endif
 
+/* 测点类型来自编解码层；UDP/TCP 通道也用它承载一个测点，
+ * 只用到 addr/raw/value 三个字段，不涉及 protobuf。 */
+#include "telemetry_codec.h"
+
 static const char *TAG = "MAIN";
 
 /* ==================================================================
@@ -44,8 +49,37 @@ static const char *TAG = "MAIN";
 #define IDX_CURRENT     2      /* 0x3002 */
 #define IDX_POWER       4      /* 0x3004 */
 
+#define POINT_COUNT     3      /* 上报的测点个数 */
+
+/* ------------------------------------------------------------------
+ * 测点表：地址 / 在 regs[] 里的下标 / 物理值换算系数
+ *
+ * 三张表按下标一一对应，改寄存器映射时只动这里，业务代码不用改。
+ * 换算系数用浮点常量：写成整数 10 会变成整数除法，3500/10 得 350 没问题，
+ * 但 3549/10 会变成 354 而不是 354.9。
+ * ------------------------------------------------------------------ */
+static const uint16_t s_pt_addr[POINT_COUNT]  = {
+    REG_BASE + IDX_VOLTAGE, REG_BASE + IDX_CURRENT, REG_BASE + IDX_POWER
+};
+static const int      s_pt_idx[POINT_COUNT]   = {
+    IDX_VOLTAGE, IDX_CURRENT, IDX_POWER
+};
+static const float    s_pt_scale[POINT_COUNT] = {
+    10.0f, 100.0f, 1.0f
+};
+
 #define COLLECT_PERIOD_MS       5000   /* 采集周期 5 秒 */
 #define REPORT_START_THRESHOLD  3      /* 连续成功 3 次后启动上报 */
+
+/* 把一次读到的寄存器填成测点数组 */
+static void fill_points(const uint16_t *regs, codec_metric_t *pts)
+{
+    for (int i = 0; i < POINT_COUNT; i++) {
+        pts[i].addr  = s_pt_addr[i];
+        pts[i].raw   = regs[s_pt_idx[i]];
+        pts[i].value = (float)pts[i].raw / s_pt_scale[i];
+    }
+}
 
 /* ------------------------------------------------------------------
  * 采集任务：周期读取寄存器 → 解析 → UDP 上报
@@ -61,11 +95,10 @@ static void collector_task(void *arg)
     bool prev_wifi_ok = false;   /* 上一周期的 Wi-Fi 状态，用于检测重连 */
 #endif
 #if CONFIG_REPORT_PROTO_MQTT
-    /* 读失败时沿用上一次成功的数值，配合 state=1 告诉上位机「数据已过期」 */
-    float last_voltage = 0.0f;
-    float last_current = 0.0f;
-    float last_power   = 0.0f;
-    bool  has_last     = false;
+    /* 读失败时沿用上一次成功的测点，配合 state=1 告诉上位机「数据已过期」 */
+    codec_metric_t last_pts[POINT_COUNT] = {0};
+    bool     has_last = false;
+    uint32_t seq      = 0;       /* 帧序号，成功发出一条才 +1，便于上位机发现丢帧 */
 #endif
 
     while (1) {
@@ -95,20 +128,18 @@ static void collector_task(void *arg)
                      (unsigned)(REG_BASE + IDX_CURRENT), regs[IDX_CURRENT],
                      (unsigned)(REG_BASE + IDX_POWER),   regs[IDX_POWER]);
 
-            /* 物理值：必须用浮点除法，避免整数除法丢精度 */
-            float voltage = regs[IDX_VOLTAGE] / 10.0f;
-            float current = regs[IDX_CURRENT] / 100.0f;
-            float power   = (float)regs[IDX_POWER];
+            /* 填测点：地址 + 原始值 + 物理值。
+             * 换算必须用浮点除法，避免整数除法丢精度（3549/10 要得 354.9）。 */
+            codec_metric_t pts[POINT_COUNT];
+            fill_points(regs, pts);
 
             ESP_LOGI(TAG, "Value: Voltage=%.1fV, Current=%.2fA, Power=%.0fW",
-                     voltage, current, power);
+                     pts[0].value, pts[1].value, pts[2].value);
 
 #if CONFIG_REPORT_PROTO_MQTT
             /* 缓存本次结果，供读失败时带 state=1 上报 */
-            last_voltage = voltage;
-            last_current = current;
-            last_power   = power;
-            has_last     = true;
+            memcpy(last_pts, pts, sizeof(pts));
+            has_last = true;
 #endif
 
             /* 连续成功 3 次后，才启动上报 */
@@ -122,11 +153,13 @@ static void collector_task(void *arg)
             if (reporting) {
                 if (wifi_ok) {
 #if CONFIG_REPORT_PROTO_TCP
-                    tcp_send_json(voltage, current, power);
+                    tcp_send_json(pts[0].value, pts[1].value, pts[2].value);
 #elif CONFIG_REPORT_PROTO_MQTT
-                    mqtt_report_send_json(voltage, current, power, 0);
+                    if (mqtt_report_send_telemetry(seq, 0, pts, POINT_COUNT)) {
+                        seq++;      /* 只有真正发出去了才推进序号 */
+                    }
 #else
-                    udp_send_json(voltage, current, power);
+                    udp_send_json(pts[0].value, pts[1].value, pts[2].value);
 #endif
                 } else {
                     ESP_LOGW(TAG, "Wi-Fi not connected, skip this report");
@@ -149,7 +182,9 @@ static void collector_task(void *arg)
              * 这是综合验收第 4 条「拔掉从机 → state=1，恢复后回 0」的要求。 */
             if (reporting && wifi_ok && has_last && mqtt_report_is_connected()) {
                 ESP_LOGW(TAG, "report stale values with state=1 (modbus down)");
-                mqtt_report_send_json(last_voltage, last_current, last_power, 1);
+                if (mqtt_report_send_telemetry(seq, 1, last_pts, POINT_COUNT)) {
+                    seq++;
+                }
             }
 #endif
         }

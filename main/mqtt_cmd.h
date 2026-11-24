@@ -15,7 +15,7 @@ extern "C" {
  *   200ms 超时 × 3 次重试 ≈ 600ms。在回调里同步读会让 MQTT 任务停摆，
  *   超过 keepalive（60s）就被 Broker 判定离线，表现为反复掉线重连。
  *
- *   所以回调只做「传达室」：校验长度 → 解析 JSON → 入队，然后立刻返回；
+ *   所以回调只做「传达室」：校验长度 → protobuf 解码 → 入队，然后立刻返回；
  *   真正的 Modbus 读写放在本模块自己的任务里慢慢等超时。
  */
 bool mqtt_cmd_init(void);
@@ -27,8 +27,9 @@ bool mqtt_cmd_init(void);
  * @param data      载荷（**不以 '\0' 结尾**，可能含 0x00，长度由 data_len 给出）
  * @param data_len  载荷字节数
  *
- * 参数校验全部在这里完成（长度、类型、范围），非法请求立即回 resp error；
- * 合法请求入队，由 cmd_task 执行后回应答。
+ * 参数校验全部由编解码层完成（长度、req_id 字符集、各字段范围）；
+ * 能取到合法 req_id 的越界请求立即回 Resp{ok=false}，
+ * 取不到 req_id 的坏报文只记日志丢弃。合法请求入队，执行后回应答。
  */
 void mqtt_cmd_handle_message(const char *topic, int topic_len,
                              const char *data, int data_len);
