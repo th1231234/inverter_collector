@@ -55,6 +55,9 @@ TOPIC_RESP = "dev/%s/resp" % DEV_ID
 TOPIC_READ = "dev/%s/read" % DEV_ID
 TOPIC_WRITE = "dev/%s/write" % DEV_ID
 
+# 与固件 main/telemetry_codec.h 的 CODEC_MAX_READ_NUM 保持一致
+MAX_READ_NUM = 16
+
 
 # ----------------------------------------------------------------------
 # 打印：字段名对齐 proto 定义，数值按 Modbus 习惯给十六进制
@@ -112,6 +115,124 @@ def show_resp(raw: bytes) -> bool:
 
 
 # ----------------------------------------------------------------------
+# 判断一段字节属于哪份 message
+#
+# 为什么不能只靠"解出来再编回去是否一致"：不同的 message 字段号有重叠，
+# 一段 Resp 往往也能当作 Telemetry 解出东西（保护字段名不同但字段号
+# 相同），往返比对同样成立，会误判。这里改成扫顶层 tag，看
+# (字段号, 线路类型) 是否与 schema 完全吻合，吻合才算。
+# ----------------------------------------------------------------------
+SCHEMAS = {
+    # 字段号: 允许的线路类型集合（0=变长 1=64位 2=长度前缀 5=32位）
+    "Telemetry":    {1: {2}, 2: {0}, 3: {0}, 4: {0}, 5: {2}},
+    "Resp":         {1: {2}, 2: {0}, 3: {2}, 4: {0, 2}},
+    "ReadRequest":  {1: {2}, 2: {0}, 3: {0}, 4: {0}},
+    "WriteRequest": {1: {2}, 2: {0}, 3: {0}, 4: {0}},
+}
+
+
+def _varint(buf, i):
+    shift = 0
+    val = 0
+    while True:
+        if i >= len(buf) or shift > 63:
+            raise ValueError("varint 越界")
+        b = buf[i]
+        val |= (b & 0x7F) << shift
+        i += 1
+        if not (b & 0x80):
+            return val, i
+        shift += 7
+
+
+def scan_tags(raw):
+    """扫顶层字段，返回 [(字段号, 线路类型, 变长字段的值或 None)]。
+
+    结构不完整（截断、非法线路类型）返回 None。
+    """
+    tags = []
+    i = 0
+    try:
+        while i < len(raw):
+            key, i = _varint(raw, i)
+            field, wt = key >> 3, key & 7
+            if field == 0:
+                return None
+            val = None
+            if wt == 0:
+                val, i = _varint(raw, i)
+            elif wt == 1:
+                i += 8
+            elif wt == 2:
+                ln, i = _varint(raw, i)
+                i += ln
+            elif wt == 5:
+                i += 4
+            else:
+                return None
+            if i > len(raw):
+                return None
+            tags.append((field, wt, val))
+    except ValueError:
+        return None
+    return tags
+
+
+def guess_types(raw):
+    """返回可能匹配的 message 名列表（按可信度排序），空列表表示都不匹配。"""
+    tags = scan_tags(raw)
+    if tags is None:
+        return []
+    fields = {f for f, _, _ in tags}
+    wt_of = {f: wt for f, wt, _ in tags}
+
+    cands = [name for name, tbl in SCHEMAS.items()
+             if all(f in tbl and wt in tbl[f] for f, wt, _ in tags)]
+
+    # 语义过滤 1：固件发的 Telemetry 一定带 metrics（字段 5，长度前缀）
+    # 和 ts_ms（字段 3）。否则一条 10 字节的 ReadRequest 会被解成
+    # "3 个空测点的遥测"，看着像成功其实是胡说。
+    if "Telemetry" in cands and (wt_of.get(5) != 2 or 3 not in fields):
+        cands.remove("Telemetry")
+
+    # 语义过滤 2：ReadRequest.num 固件限制在 1~16（CODEC_MAX_READ_NUM），
+    # 字段 4 的值超过 16 就只能是 WriteRequest.value。
+    v4 = next((v for f, wt, v in tags if f == 4 and wt == 0), None)
+    if "ReadRequest" in cands and v4 is not None and v4 > MAX_READ_NUM:
+        cands.remove("ReadRequest")
+
+    order = ["Telemetry", "Resp", "ReadRequest", "WriteRequest"]
+    return [n for n in order if n in cands]
+
+
+def show_hex(raw: bytes) -> int:
+    cands = guess_types(raw)
+    if not cands:
+        print("四份 message 都对不上：检查是否粘少了字节，或者这根本不是本工程的报文")
+        print("hex=%s" % raw.hex())
+        return 1
+
+    name = cands[0]
+    print("识别为 %s:" % name)
+    if name == "Telemetry":
+        show_telemetry(raw)
+    elif name == "Resp":
+        show_resp(raw)
+    else:
+        cls = pb.ReadRequest if name == "ReadRequest" else pb.WriteRequest
+        # 注意：ParseFromString 返回的是「解析了多少字节」，不是消息对象
+        msg = cls()
+        msg.ParseFromString(raw)
+        print(str(msg).rstrip())
+
+    rest = cands[1:]
+    if rest:
+        print("（结构上也吻合：%s —— 字段号相同，只能结合主题或上下文判断）"
+              % " / ".join(rest))
+    return 0
+
+
+# ----------------------------------------------------------------------
 # 组请求
 # ----------------------------------------------------------------------
 def build_read(req_id: str, slave: int, addr: int, num: int) -> bytes:
@@ -128,10 +249,20 @@ def build_write(req_id: str, slave: int, addr: int, value: int) -> bytes:
 # 主流程
 # ----------------------------------------------------------------------
 def main() -> int:
+    # hex 模式下允许不写引号：cmd 会把 0a08 696e ... 拆成多个参数，
+    # 这里在 argparse 之前把它们重新粘成一个，否则 argparse 直接报
+    # "unrecognized arguments"。其它子命令不受影响。
+    argv = sys.argv[1:]
+    if "hex" in argv:
+        i = argv.index("hex")
+        joined = "".join(argv[i + 1:])
+        argv = argv[:i + 1] + ([joined] if joined else [])
+
     ap = argparse.ArgumentParser(description="protobuf 收发与解析")
     ap.add_argument("action", nargs="?", default="listen",
-                    choices=["listen", "read", "write", "send"],
-                    help="listen=只订阅解码；read/write=发请求；send=发原始 hex")
+                    choices=["listen", "read", "write", "send", "hex"],
+                    help="listen=只订阅解码；read/write=发请求；send=发原始 hex；"
+                         "hex=离线解码一段 hex（不连 broker）")
     ap.add_argument("hexpayload", nargs="?", default=None,
                     help="send 动作的十六进制载荷")
     ap.add_argument("--id", default="1", help="req_id（默认 1）")
@@ -144,9 +275,25 @@ def main() -> int:
     ap.add_argument("--topic", choices=["read", "write"], default="read",
                     help="send 动作发到哪个下行主题（默认 read）")
     ap.add_argument("--hex", action="store_true", help="每条消息额外打印原始十六进制")
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
 
     addr = int(args.addr, 0)      # int(x, 0) 才能同时接受 0x3000 和 12288
+
+    # ---- 离线解码：把 MQTTX 里复制的十六进制粘进来，不用连 broker ----
+    if args.action == "hex":
+        text = (args.hexpayload or "")
+        text = text.replace(" ", "").replace("\t", "").replace("\n", "").replace("\r", "")
+        if not text:
+            print("用法: python tools/proto_decode.py hex 0a08696e7465726e3031...")
+            print("      （十六进制可以直接粘，带空格不用加引号）")
+            return 1
+        try:
+            raw = bytes.fromhex(text)
+        except ValueError:
+            print("不是合法的十六进制串，检查是否粘进了 'Topic:' 之类的文字")
+            return 1
+        print("输入 %d 字节" % len(raw))
+        return show_hex(raw)
 
     got = {"n": 0}
     wait_suback = {"done": False}
