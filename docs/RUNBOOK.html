@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>全流程操作手册</title>
+<style>
+:root {
+  --bg: #ffffff;
+  --bg-soft: #f7f8fa;
+  --bg-code: #f6f8fa;
+  --fg: #1f2328;
+  --fg-muted: #656d76;
+  --border: #d8dee4;
+  --accent: #0969da;
+  --accent-soft: #ddf4ff;
+  --maxw: 880px;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: -apple-system, "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+  font-size: 15px;
+  line-height: 1.75;
+}
+#wrap { display: flex; align-items: flex-start; }
+
+/* ---------- 左侧目录 ---------- */
+aside {
+  position: sticky;
+  top: 0;
+  width: 290px;
+  min-width: 290px;
+  height: 100vh;
+  overflow-y: auto;
+  border-right: 1px solid var(--border);
+  background: var(--bg-soft);
+  padding: 18px 14px 60px;
+}
+aside h1 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 12px 4px;
+  letter-spacing: .2px;
+}
+#q {
+  width: 100%;
+  padding: 7px 10px;
+  font-size: 13px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: #fff;
+  margin-bottom: 14px;
+  outline: none;
+  font-family: inherit;
+}
+#q:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+#hits { font-size: 12px; color: var(--fg-muted); margin: -6px 0 10px 4px; min-height: 16px; }
+
+.toc { font-size: 13px; }
+.toc ul { list-style: none; margin: 0; padding-left: 12px; }
+.toc > ul { padding-left: 0; }
+.toc li { margin: 1px 0; }
+.toc a {
+  display: block;
+  padding: 3px 8px;
+  color: var(--fg);
+  text-decoration: none;
+  border-radius: 5px;
+  border-left: 2px solid transparent;
+}
+.toc a:hover { background: #eef1f4; }
+.toc a.active { background: var(--accent-soft); color: var(--accent); border-left-color: var(--accent); font-weight: 500; }
+.toc ul ul { font-size: 12.5px; color: var(--fg-muted); }
+
+/* ---------- 右侧正文 ---------- */
+main { flex: 1; min-width: 0; }
+article {
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 40px 48px 120px;
+}
+article h1, article h2, article h3, article h4, article h5, article h6 {
+  line-height: 1.4;
+  margin: 1.9em 0 .7em;
+  scroll-margin-top: 20px;
+}
+article h1 { font-size: 30px; font-weight: 650; margin-top: 0; padding-bottom: .3em; border-bottom: 1px solid var(--border); }
+article h2 { font-size: 23px; font-weight: 650; padding-bottom: .3em; border-bottom: 1px solid var(--border); }
+article h3 { font-size: 18px; font-weight: 600; color: #1f2328; }
+article h4 { font-size: 16px; font-weight: 600; color: #24292f; }
+article h5, article h6 { font-size: 14.5px; font-weight: 600; color: var(--fg-muted); }
+article p { margin: 0 0 15px; }
+article a { color: var(--accent); text-decoration: none; }
+article a:hover { text-decoration: underline; }
+article ul, article ol { padding-left: 26px; margin: 0 0 15px; }
+article li { margin: 4px 0; }
+article strong { font-weight: 600; }
+
+blockquote {
+  margin: 0 0 15px;
+  padding: 8px 16px;
+  color: var(--fg-muted);
+  border-left: 3px solid var(--border);
+  background: var(--bg-soft);
+  border-radius: 0 6px 6px 0;
+}
+
+/* 行内代码 */
+article code {
+  font-family: "Cascadia Code", Consolas, "Courier New", monospace;
+  font-size: 13px;
+  background: rgba(175,184,193,.2);
+  padding: 2px 6px;
+  border-radius: 5px;
+}
+
+/* 代码块 */
+.codebox { position: relative; margin: 0 0 18px; }
+.codebox pre {
+  margin: 0;
+  padding: 14px 16px;
+  overflow-x: auto;
+  background: var(--bg-code);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+.codebox pre code {
+  background: none;
+  padding: 0;
+  font-size: 12.5px;
+  white-space: pre;
+}
+.codebox .copy {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 11.5px;
+  padding: 3px 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--fg-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .15s;
+  font-family: inherit;
+}
+.codebox:hover .copy { opacity: 1; }
+.codebox .copy.done { color: #1a7f37; border-color: #1a7f37; }
+code.language-tag {
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  font-size: 10.5px;
+  color: #8b949e;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  pointer-events: none;
+}
+.codebox pre { padding-top: 30px; }
+
+/* 表格 */
+table {
+  border-collapse: collapse;
+  margin: 0 0 18px;
+  font-size: 14px;
+  width: auto;
+  max-width: 100%;
+  display: block;
+  overflow-x: auto;
+}
+th, td {
+  border: 1px solid var(--border);
+  padding: 7px 13px;
+  text-align: left;
+  vertical-align: top;
+}
+th { background: var(--bg-soft); font-weight: 600; white-space: nowrap; }
+tbody tr:nth-child(even) { background: #fbfcfd; }
+
+img {
+  max-width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin: 6px 0;
+}
+.imgmiss {
+  display: inline-block;
+  padding: 10px 14px;
+  background: #fff8e6;
+  border: 1px dashed #d4a72c;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #7a5c00;
+}
+
+hr { border: none; border-top: 1px solid var(--border); margin: 30px 0; }
+
+#top {
+  position: fixed;
+  right: 26px;
+  bottom: 26px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--fg-muted);
+  cursor: pointer;
+  font-size: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.08);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s;
+}
+#top.show { opacity: 1; pointer-events: auto; }
+
+@media (max-width: 900px) {
+  aside { display: none; }
+  article { padding: 24px 18px 90px; }
+}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <aside>
+    <h1>全流程操作手册</h1>
+    <input id="q" type="search" placeholder="搜索目录标题…" autocomplete="off">
+    <div id="hits"></div>
+    <div class="toc">
+<ul>
+<li><a href="#全流程操作手册-从编译烧录到四主题验收">全流程操作手册：从编译烧录到四主题验收</a><ul>
+<li><a href="#0-一页速查">0. 一页速查</a></li>
+<li><a href="#1-环境自检-只做一次">1. 环境自检（只做一次）</a><ul>
+<li><a href="#1-1-三样东西必须在">1.1 三样东西必须在</a></li>
+<li><a href="#1-2-每次开新终端都要激活-idf">1.2 每次开新终端都要激活 IDF</a></li>
+<li><a href="#1-3-串口要认两个">1.3 串口要认两个</a></li>
+</ul>
+</li>
+<li><a href="#2-硬件接线">2. 硬件接线</a><ul>
+<li><a href="#2-1-两路串口完全独立-不要混">2.1 两路串口完全独立，不要混</a></li>
+<li><a href="#2-2-烧录线的限制-决定了烧录怎么操作">2.2 烧录线的限制（决定了烧录怎么操作）</a></li>
+</ul>
+</li>
+<li><a href="#3-启动顺序-重要-pc-侧先-板子后">3. 启动顺序（重要：PC 侧先，板子后）</a><ul>
+<li><a href="#①-开移动热点">① 开移动热点</a></li>
+<li><a href="#②-起-emqx">② 起 EMQX</a></li>
+</ul>
+</li>
+<li><a href="#4-编译">4. 编译</a></li>
+<li><a href="#5-烧录">5. 烧录</a><ul>
+<li><a href="#5-1-命令">5.1 命令</a></li>
+<li><a href="#5-2-报-no-serial-data-received-怎么办">5.2 报 No serial data received 怎么办</a></li>
+<li><a href="#5-3-烧完必须手动按-rst">5.3 烧完必须手动按 RST</a></li>
+</ul>
+</li>
+<li><a href="#6-看日志">6. 看日志</a><ul>
+<li><a href="#6-1-看到这四行才算启动成功">6.1 看到这四行才算启动成功</a></li>
+</ul>
+</li>
+<li><a href="#7-mqttx-连接与订阅">7. MQTTX 连接与订阅</a><ul>
+<li><a href="#7-1-连接配置">7.1 连接配置</a></li>
+<li><a href="#7-2-订阅">7.2 订阅</a></li>
+<li><a href="#7-3-载荷格式-hex-不是-json">7.3 载荷格式：Hex，不是 JSON</a></li>
+</ul>
+</li>
+<li><a href="#8-四条验证路径">8. 四条验证路径</a><ul>
+<li><a href="#8-1-周期上报-等-5-秒就有">8.1 周期上报（等 5 秒就有）</a></li>
+<li><a href="#8-2-读寄存器">8.2 读寄存器</a></li>
+<li><a href="#8-3-写寄存器">8.3 写寄存器</a></li>
+<li><a href="#8-4-掉线状态">8.4 掉线状态</a></li>
+</ul>
+</li>
+<li><a href="#9-验收用例对照">9. 验收用例对照</a><ul>
+<li><a href="#阶段三-p-01-p-07">阶段三（P-01 ~ P-07）</a></li>
+<li><a href="#阶段二-m-01-m-08">阶段二（M-01 ~ M-08）</a></li>
+</ul>
+</li>
+<li><a href="#10-故障对照表">10. 故障对照表</a></li>
+<li><a href="#11-收尾顺序">11. 收尾顺序</a></li>
+<li><a href="#12-只改配置不烧录能生效吗">12. 只改配置不烧录能生效吗</a></li>
+</ul>
+</li>
+</ul>
+</div>
+
+  </aside>
+  <main>
+    <article id="content">
+<h1 id="全流程操作手册-从编译烧录到四主题验收">全流程操作手册：从编译烧录到四主题验收</h1>
+<blockquote>
+<p>适用：<code>main</code> 分支（阶段三，MQTT + Protobuf）、ESP32-C3、Windows + ESP-IDF 5.5.5
+目标：照着从上往下做，能把整个工程从「代码在硬盘上」跑到「MQTTX 里看到遥测帧、发命令能收到应答」</p>
+</blockquote>
+<hr />
+<h2 id="0-一页速查">0. 一页速查</h2>
+<p>每次开机要重做的最小集合，只有 5 步：</p>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>① 开移动热点        → PC 得到 192.168.137.1
+② 起 EMQX           → emqx.cmd console（前台窗口，别关）
+③ 起 Modbus 从机    → python tools\modbus_slave_sim.py COM10 9600 1
+④ 板子按 RST        → 串口日志出现 &quot;MQTT: subscribed ...&quot;
+⑤ MQTTX 连接        → 订阅 dev/intern01/#
+</code></pre></div>
+
+<p>改代码之后才需要加一步「编译 + 烧录」。</p>
+<hr />
+<h2 id="1-环境自检-只做一次">1. 环境自检（只做一次）</h2>
+<h3 id="1-1-三样东西必须在">1.1 三样东西必须在</h3>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>位置 / 检查命令</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ESP-IDF v5.5.5</td>
+<td><code>D:\work\Espressif\frameworks\esp-idf-v5.5.5</code></td>
+</tr>
+<tr>
+<td>IDF 专用 Python</td>
+<td><code>D:\work\Espressif\python_env\idf5.5_py3.11_env\Scripts\python.exe</code></td>
+</tr>
+<tr>
+<td>EMQX 5.2.1</td>
+<td><code>D:\work\MQTT\emqx-5.2.1-windows-amd64</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="1-2-每次开新终端都要激活-idf">1.2 每次开新终端都要激活 IDF</h3>
+<p><strong>必须用 PowerShell，不能用 bash</strong>（bash 里的 <code>export.sh</code> 会让 <code>idf.py</code> 报 <code>No module named 'click'</code>）：</p>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code><span style="color: #007020">cd </span>D:\work\Espressif\frameworks\esp-idf-v5.5.5
+.\export.ps1
+</code></pre></div>
+
+<p>如果报「禁止运行脚本」：</p>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code><span style="color: #007020">Set-ExecutionPolicy</span> -Scope <span style="color: #007020; font-weight: bold">Process</span> -ExecutionPolicy Bypass -Force
+</code></pre></div>
+
+<p>激活成功的标志：<code>idf.py --version</code> 能输出版本号。</p>
+<h3 id="1-3-串口要认两个">1.3 串口要认两个</h3>
+<table>
+<thead>
+<tr>
+<th>串口</th>
+<th>用途</th>
+<th>谁占用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>COM8</strong></td>
+<td>烧录 + 控制台日志（UART0）</td>
+<td><code>idf.py flash</code> / 串口脚本</td>
+</tr>
+<tr>
+<td><strong>COM10</strong></td>
+<td>Modbus 总线（USB 转 485）</td>
+<td>从机模拟器 / Modbus Slave</td>
+</tr>
+</tbody>
+</table>
+<p>同一个串口<strong>不能同时被两个程序打开</strong>，否则报 <code>port is busy</code> / <code>Access is denied</code>。</p>
+<hr />
+<h2 id="2-硬件接线">2. 硬件接线</h2>
+<h3 id="2-1-两路串口完全独立-不要混">2.1 两路串口完全独立，不要混</h3>
+<table>
+<thead>
+<tr>
+<th>用途</th>
+<th>板上引脚</th>
+<th>接到哪</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>烧录 / 日志</strong>（UART0）</td>
+<td><code>GPIO21</code>(TX0)、<code>GPIO20</code>(RX0)、<code>GND</code></td>
+<td>USB 转 TTL 线 → <strong>COM8</strong></td>
+</tr>
+<tr>
+<td><strong>Modbus</strong>（UART1）</td>
+<td><code>GPIO5</code>(TX)、<code>GPIO6</code>(RX)、<code>GND</code></td>
+<td>TTL 转 485 → USB 转 485 → <strong>COM10</strong></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>接到 USB 转 485 之前，A 接 A、B 接 B，<strong>GND 必须共地</strong>。桌上短距离不用 120 Ω 终端电阻。</p>
+</blockquote>
+<h3 id="2-2-烧录线的限制-决定了烧录怎么操作">2.2 烧录线的限制（决定了烧录怎么操作）</h3>
+<p>这条线只有 <strong>VCC / GND / TX / RX 四根，没有 DTR、没有 RTS</strong>。后果有两个，都必须记住：</p>
+<ol>
+<li>esptool <strong>无法自动让芯片进下载模式</strong> → 要手动按住 BOOT 再点 RST</li>
+<li>烧录结束那行 <code>Hard resetting via RTS pin</code> 是<strong>空喊</strong>（没接线）→ 烧完要手动按一次 RST，否则程序不跑</li>
+</ol>
+<hr />
+<h2 id="3-启动顺序-重要-pc-侧先-板子后">3. 启动顺序（重要：PC 侧先，板子后）</h2>
+<p>板子上电后会立刻连 Wi-Fi 和 broker。如果这时候 broker 还没起，它只能一直重连 —— 虽然会自动恢复，但日志会很脏、容易误判成故障。</p>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>① 开热点          ② 起 EMQX        ③ 起从机           ④ 板子上电
+   ↓                 ↓                 ↓                  ↓
+192.168.137.1     1883 开始监听     COM10 开始应答     连 Wi-Fi → 连 broker
+</code></pre></div>
+
+<h3 id="①-开移动热点">① 开移动热点</h3>
+<p>固件里 broker 地址写的是 <code>mqtt://192.168.137.1:1883</code>，这是 <strong>Windows 移动热点的网卡地址</strong>，不是固定 IP。</p>
+<ul>
+<li>设置 → 网络和 Internet → 移动热点 → 打开</li>
+<li>确认：<code>ipconfig</code> 里能看到 <code>192.168.137.1</code></li>
+<li>板子连的就是这个热点（SSID / 密码在 <code>menuconfig → Inverter Collector → Wi-Fi</code>）</li>
+</ul>
+<blockquote>
+<p>热点一关，这个地址就消失，板子会表现为「一直重连但 PC 上 EMQX 明明在跑」。</p>
+</blockquote>
+<h3 id="②-起-emqx">② 起 EMQX</h3>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code><span style="color: #007020; font-weight: bold">cd</span> /d D:\work\MQTT\emqx-5.2.1-windows-amd64\bin
+emqx.cmd console
+</code></pre></div>
+
+<ul>
+<li><strong>必须用 <code>console</code>，不要用 <code>start</code></strong>。<code>start</code> 分支是 <code>start werl</code> 开新窗口，从 PowerShell / 后台调用会静默失败</li>
+<li><code>console</code> 是前台运行，这个窗口<strong>不能关</strong>，关了 broker 就停了</li>
+<li>验证：浏览器打开 http://127.0.0.1:18083 （默认 admin / public），或看 1883 是否在监听</li>
+</ul>
+<hr />
+<h2 id="4-编译">4. 编译</h2>
+<p>在工程根目录，已激活 IDF 的 PowerShell 里：</p>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code><span style="color: #007020">cd </span>D:\work\espidf_projects\inverter_collector
+idf.py build
+</code></pre></div>
+
+<p>成功标志：</p>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>Project build complete. To flash, run:
+ idf.py flash
+</code></pre></div>
+
+<p>产物 <code>build/inverter_collector.bin</code> 约 <strong>997 KB</strong>。</p>
+<p><strong>如果日志看起来卡在 <code>777/999</code> 不动</strong> —— 那不是死锁，是 PowerShell 在把管道输出逐行转成 .NET 对象。用脚本绕开：</p>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>python tools\build_run.py
+</code></pre></div>
+
+<p>日志会写到 <code>build_log.txt</code>，能实时看到真实进度。</p>
+<hr />
+<h2 id="5-烧录">5. 烧录</h2>
+<h3 id="5-1-命令">5.1 命令</h3>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>idf.py -p COM8 -b 115200 flash
+</code></pre></div>
+
+<p><strong>波特率必须是 115200。</strong> 实测过的三组结果：</p>
+<table>
+<thead>
+<tr>
+<th>配置</th>
+<th>结果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-b 460800</code></td>
+<td><code>The chip stopped responding</code></td>
+</tr>
+<tr>
+<td><code>-b 115200 --no-stub</code></td>
+<td>写到 15% 报 <code>0105 message format invalid</code></td>
+</tr>
+<tr>
+<td><strong><code>-b 115200</code>（默认带 stub）</strong></td>
+<td>✅ 成功，997,280 字节，约 56 秒</td>
+</tr>
+</tbody>
+</table>
+<h3 id="5-2-报-no-serial-data-received-怎么办">5.2 报 <code>No serial data received</code> 怎么办</h3>
+<p>说明芯片没进下载模式（因为线没有 DTR/RTS）。手动来：</p>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>① 按住 BOOT 键不放
+② 点一下 RST 键
+③ 松开 BOOT
+④ 立刻执行 idf.py -p COM8 -b 115200 flash
+</code></pre></div>
+
+<h3 id="5-3-烧完必须手动按-rst">5.3 烧完必须手动按 RST</h3>
+<p><code>Hard resetting via RTS pin...</code> 在这条线上是空操作，芯片可能还停在下载模式（日志会显示 <code>boot:0x4 (DOWNLOAD)</code>）。<strong>按一下 RST</strong>，让它从 flash 启动。</p>
+<blockquote>
+<p>不要试图用 <code>esptool.py --after hard_reset</code> 或 <code>boot_run.py</code> 的软复位 —— ESP32-C3 不支持 esptool 软件复位，会报 <code>Soft resetting is currently only supported on ESP8266</code>。</p>
+</blockquote>
+<hr />
+<h2 id="6-看日志">6. 看日志</h2>
+<p>三种方式，按场景选：</p>
+<table>
+<thead>
+<tr>
+<th>方式</th>
+<th>命令</th>
+<th>特点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>标准</strong></td>
+<td><code>idf.py -p COM8 monitor</code></td>
+<td>退出按 <code>Ctrl + ]</code>；非交互终端里会立刻 EOF</td>
+</tr>
+<tr>
+<td><strong>抓启动日志</strong>（推荐）</td>
+<td><code>python tools\boot_run.py COM8 115200 60</code></td>
+<td>抓 60 秒存 <code>tools/boot_*.log</code>，中文不乱码</td>
+</tr>
+<tr>
+<td><strong>一直盯着看</strong></td>
+<td><code>python tools\watch_serial.py</code></td>
+<td>适合长时间观察</td>
+</tr>
+</tbody>
+</table>
+<h3 id="6-1-看到这四行才算启动成功">6.1 看到这四行才算启动成功</h3>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>I (812) MAIN: report channel: MQTT -&gt; mqtt://192.168.137.1:1883
+I (1724) MQTT_CMD: cmd ready: sub &quot;dev/intern01/read&quot; &amp; &quot;dev/intern01/write&quot;, pub &quot;dev/intern01/resp&quot;
+I (2414) MQTT: client_id=intern01, pub topic=dev/intern01/data
+I (2414) MQTT: subscribed &quot;dev/intern01/read&quot; (msg_id=1), &quot;dev/intern01/write&quot; (msg_id=2)
+</code></pre></div>
+
+<p>四行分别对应：上报通道选对了 → 命令模块起来了 → 连上 broker 了 → <strong>订阅成功了</strong>。</p>
+<hr />
+<h2 id="7-mqttx-连接与订阅">7. MQTTX 连接与订阅</h2>
+<h3 id="7-1-连接配置">7.1 连接配置</h3>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>填什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Host</td>
+<td><code>127.0.0.1</code>（MQTTX 和 EMQX 在同一台 PC 上）</td>
+</tr>
+<tr>
+<td>Port</td>
+<td><code>1883</code></td>
+</tr>
+<tr>
+<td>Username</td>
+<td><code>esp32</code></td>
+</tr>
+<tr>
+<td>Password</td>
+<td>见 <code>menuconfig → MQTT Password</code></td>
+</tr>
+<tr>
+<td><strong>Client ID</strong></td>
+<td><strong>不能用 <code>intern01</code></strong>！用 <code>mqttx_pc</code> 之类</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>Client ID 重名会<strong>互踢</strong> —— 你用 <code>intern01</code> 连上，板子就被踢下线；板子重连，你又掉线。表现为两边疯狂断开重连。</p>
+</blockquote>
+<h3 id="7-2-订阅">7.2 订阅</h3>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>dev/intern01/#
+</code></pre></div>
+
+<p><code>#</code> 从当前层级往下全匹配，一次订全四个主题。实际会有数据的只有 <code>data</code> 和 <code>resp</code>。</p>
+<h3 id="7-3-载荷格式-hex-不是-json">7.3 载荷格式：Hex，不是 JSON</h3>
+<p>阶段三的载荷是 <strong>protobuf 二进制</strong>，MQTTX 底部发布面板要把格式切到 <code>Hex</code>：</p>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>Topic:   dev/intern01/read
+Payload: 0a013110011880602005
+</code></pre></div>
+
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>Topic:   dev/intern01/write
+Payload: 0a0133100118806020ac1b     ← value=3500，即 350.0V
+</code></pre></div>
+
+<p>不想手算就用脚本：</p>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>python tools\proto_decode.py read  --id 1 --addr 0x3000 --num 5
+python tools\proto_decode.py <span style="color: #007020">write </span>--id 2 --addr 0x3000 --value 3000
+</code></pre></div>
+
+<hr />
+<h2 id="8-四条验证路径">8. 四条验证路径</h2>
+<h3 id="8-1-周期上报-等-5-秒就有">8.1 周期上报（等 5 秒就有）</h3>
+<p>不用做任何操作，<code>data</code> 每 5 秒来一帧：</p>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>data: device=&quot;intern01&quot; seq=7 ts_ms=1764... state=0
+  metrics: addr=0x3000 raw=3500 value=350.0
+  metrics: addr=0x3002 raw=500  value=5.00
+  metrics: addr=0x3004 raw=1750 value=1750.0
+</code></pre></div>
+
+<h3 id="8-2-读寄存器">8.2 读寄存器</h3>
+<p>发 <code>read</code> → 在 <strong><code>resp</code></strong> 收到应答（不是在 <code>data</code>）：</p>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>resp: req_id=&quot;1&quot; ok=true values=[3500, 500, 1750]
+</code></pre></div>
+
+<h3 id="8-3-写寄存器">8.3 写寄存器</h3>
+<p>发 <code>write</code> 改 <code>0x3000</code> 为 <code>3000</code>：</p>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>resp: req_id=&quot;2&quot; ok=true                    ← 立即回执
+下一帧 data: raw=3000 value=300.0            ← 5 秒内生效
+</code></pre></div>
+
+<h3 id="8-4-掉线状态">8.4 掉线状态</h3>
+<p>把从机停掉（Ctrl+C 关掉模拟器），下一帧会变成：</p>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>state=1  metrics: 沿用上一次的缓存值
+</code></pre></div>
+
+<p>恢复从机后回到 <code>state=0</code>。</p>
+<hr />
+<h2 id="9-验收用例对照">9. 验收用例对照</h2>
+<h3 id="阶段三-p-01-p-07">阶段三（P-01 ~ P-07）</h3>
+<table>
+<thead>
+<tr>
+<th>编号</th>
+<th>验什么</th>
+<th>怎么确认</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>P-01</td>
+<td>生成代码入库并能编译</td>
+<td><code>main/telemetry.pb-c.c</code> 存在，<code>idf.py build</code> 零警告</td>
+</tr>
+<tr>
+<td>P-02</td>
+<td><code>seq</code> 递增、时间间隔</td>
+<td>相邻两帧 <code>seq</code> 差 1，<code>ts_ms</code> 差约 5000</td>
+</tr>
+<tr>
+<td>P-03</td>
+<td>数值与从机一致</td>
+<td>三行 metric 的 <code>raw</code> 等于从机寄存器值</td>
+</tr>
+<tr>
+<td>P-04</td>
+<td>读写闭环</td>
+<td>8.2 / 8.3 / 8.4 三条都通</td>
+</tr>
+<tr>
+<td>P-05</td>
+<td>含 <code>0x00</code> 的帧不截断</td>
+<td>写 <code>0</code> 后帧长 50 字节，<code>proto_decode.py</code> 解码完整并报「完整性 OK」</td>
+</tr>
+<tr>
+<td>P-06</td>
+<td>坏报文被丢弃</td>
+<td>发 <code>0a0531</code> → 日志 <code>bad ReadRequest (unpack_failed), len=3, dropped</code>，不回应答、不重启</td>
+</tr>
+<tr>
+<td>P-07</td>
+<td>工具链版本可复现</td>
+<td>README 12 章记录了 protoc 6.30.2 / protoc-gen-c 1.5.2 / 运行时 1.4.1</td>
+</tr>
+</tbody>
+</table>
+<h3 id="阶段二-m-01-m-08">阶段二（M-01 ~ M-08）</h3>
+<p>覆盖：四主题收发、命令队列、总线互斥、分片丢弃、坏载荷、<code>req_id</code> 校验、超时、QoS 1 重复投递。详见 <code>docs/STAGE2_TEST_REPORT.md</code>。</p>
+<hr />
+<h2 id="10-故障对照表">10. 故障对照表</h2>
+<table>
+<thead>
+<tr>
+<th>现象</th>
+<th>原因</th>
+<th>处理</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>烧录报 <code>port is busy</code></td>
+<td>串口助手还占着 COM8</td>
+<td>关掉串口助手 / monitor 再烧</td>
+</tr>
+<tr>
+<td>烧录报 <code>No serial data received</code></td>
+<td>没进下载模式</td>
+<td>按住 BOOT → 点 RST → 松 BOOT</td>
+</tr>
+<tr>
+<td>烧录成功但程序不跑</td>
+<td>停在下载模式（无 RTS）</td>
+<td>手动按一次 RST</td>
+</tr>
+<tr>
+<td>日志一直 <code>MQTT reconnect</code>，PC 上 EMQX 在跑</td>
+<td>热点没开，<code>192.168.137.1</code> 不存在</td>
+<td>打开移动热点</td>
+</tr>
+<tr>
+<td>日志连不上 broker，热点正常</td>
+<td>EMQX 没启动</td>
+<td><code>emqx.cmd console</code></td>
+</tr>
+<tr>
+<td>MQTTX 和板子互相踢下线</td>
+<td>Client ID 都是 <code>intern01</code></td>
+<td>MQTTX 改名 <code>mqttx_pc</code></td>
+</tr>
+<tr>
+<td>发命令到 <code>data</code> 没反应</td>
+<td>板子只订阅 <code>read</code>/<code>write</code></td>
+<td>主题改成 <code>read</code> 或 <code>write</code></td>
+</tr>
+<tr>
+<td>MQTTX 显示 <code>{addr,raw,value}</code> 一串</td>
+<td>用了 <code>Metric</code> 而不是 <code>Telemetry</code> 解码</td>
+<td>解码类型选 <code>Telemetry</code></td>
+</tr>
+<tr>
+<td>同一帧收到 3 次</td>
+<td>QoS 1 是「至少一次」</td>
+<td>正常现象，靠 <code>seq</code> 去重</td>
+</tr>
+<tr>
+<td>从机数值全 0</td>
+<td>模拟器没起 / 连错 COM 口</td>
+<td>确认 COM10、9600-8-N-1、Slave ID=1</td>
+</tr>
+<tr>
+<td>烧录卡在 <code>Connecting....</code></td>
+<td>芯片在跑 App，没进下载</td>
+<td>BOOT + RST 手动进下载模式</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="11-收尾顺序">11. 收尾顺序</h2>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>① 关 monitor / 串口脚本（释放 COM8）
+② Ctrl+C 停从机模拟器（释放 COM10）
+③ emqx.cmd console 窗口按 Ctrl+C 两次（或直接关窗口）
+④ 板子断电
+</code></pre></div>
+
+<p>不按顺序也行，但下次开机会遇到「端口被占用」，多一步排查。</p>
+<hr />
+<h2 id="12-只改配置不烧录能生效吗">12. 只改配置不烧录能生效吗</h2>
+<p>不能。<code>menuconfig</code> 改的值是<strong>编译期常量</strong>（<code>CONFIG_*</code> 宏），改完必须重新 <code>build</code> + <code>flash</code>。</p>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>idf.py menuconfig      <span style="color: #60A0B0; font-style: italic"># 改参数</span>
+idf.py build           <span style="color: #60A0B0; font-style: italic"># 重新编译</span>
+idf.py -p COM8 -b 115200 flash
+</code></pre></div>
+
+<p>四个可改参数（<code>menuconfig → Inverter Collector</code>）：</p>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>当前值</th>
+<th>影响</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Wi-Fi SSID / Password</td>
+<td>你的热点</td>
+<td>连不上就全断</td>
+</tr>
+<tr>
+<td>MQTT Broker URI</td>
+<td><code>mqtt://192.168.137.1:1883</code></td>
+<td>换主机要改</td>
+</tr>
+<tr>
+<td>MQTT Dev ID</td>
+<td><code>intern01</code></td>
+<td>同时决定四个主题和 Client ID</td>
+</tr>
+<tr>
+<td>MQTT Username / Password</td>
+<td><code>esp32</code> / 见配置</td>
+<td>认证失败会反复重连</td>
+</tr>
+</tbody>
+</table>
+    </article>
+  </main>
+</div>
+<button id="top" title="回到顶部">↑</button>
+
+<script>
+(function () {
+  var q = document.getElementById('q');
+  var links = Array.prototype.slice.call(document.querySelectorAll('.toc a'));
+  var hits = document.getElementById('hits');
+
+  function filter() {
+    var s = q.value.trim().toLowerCase();
+    var n = 0;
+    links.forEach(function (a) {
+      var hit = !s || a.textContent.toLowerCase().indexOf(s) !== -1;
+      a.parentElement.style.display = hit ? '' : 'none';
+      if (hit && s) n++;
+    });
+    // 标题被隐藏时，父级 ul 可能全空，这里不管，保持简单
+    hits.textContent = s ? ('匹配 ' + n + ' 项') : ('共 ' + links.length + ' 个标题');
+  }
+  q.addEventListener('input', filter);
+  q.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') {
+      var first = links.filter(function (a) { return a.parentElement.style.display !== 'none'; })[0];
+      if (first) first.click();
+    }
+  });
+  filter();
+
+  // 代码块：加语言标签和复制按钮
+  document.querySelectorAll('pre').forEach(function (pre) {
+    var code = pre.querySelector('code');
+    if (!code) return;
+    var box = document.createElement('div');
+    box.className = 'codebox';
+    pre.parentNode.insertBefore(box, pre);
+    box.appendChild(pre);
+
+    var m = /language-([\w+-]+)/.exec(code.className || '');
+    if (m) {
+      var tag = document.createElement('span');
+      tag.className = 'language-tag';
+      tag.textContent = m[1];
+      box.appendChild(tag);
+    }
+
+    var btn = document.createElement('button');
+    btn.className = 'copy';
+    btn.textContent = '复制';
+    btn.addEventListener('click', function () {
+      var txt = code.innerText;
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(txt);
+      } else {
+        var ta = document.createElement('textarea');
+        ta.value = txt; document.body.appendChild(ta); ta.select();
+        document.execCommand('copy'); ta.remove();
+      }
+      btn.textContent = '已复制';
+      btn.classList.add('done');
+      setTimeout(function () { btn.textContent = '复制'; btn.classList.remove('done'); }, 1400);
+    });
+    box.appendChild(btn);
+  });
+
+  // 图片丢失时给个提示，而不是留一个破图标
+  document.querySelectorAll('img').forEach(function (img) {
+    img.addEventListener('error', function () {
+      var miss = document.createElement('span');
+      miss.className = 'imgmiss';
+      miss.textContent = '图片缺失：' + (img.getAttribute('src') || '');
+      img.replaceWith(miss);
+    });
+  });
+
+  // 目录高亮当前章节
+  var heads = Array.prototype.slice.call(document.querySelectorAll('article h2, article h3, article h4'));
+  function onScroll() {
+    var y = window.scrollY + 90;
+    var cur = null;
+    heads.forEach(function (h) { if (h.offsetTop <= y) cur = h; });
+    links.forEach(function (a) {
+      a.classList.toggle('active', cur && a.getAttribute('href') === '#' + cur.id);
+    });
+    document.getElementById('top').classList.toggle('show', window.scrollY > 400);
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+
+  document.getElementById('top').addEventListener('click', function () {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+})();
+</script>
+</body>
+</html>
