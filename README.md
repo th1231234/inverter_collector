@@ -632,6 +632,21 @@ python tools/proto_decode.py send 0a0531
 
 脚本会把解析出的对象**重新序列化一遍并与收到的字节逐字节比对**，输出 `完整性 OK` 即证明载荷没有被截断、没有多余填充。
 
+如果只是想把 MQTTX 里复制出来的那串十六进制读明白，用 `tools/decode.bat` 更方便，不用敲 Python 路径，也不用给参数加引号：
+
+```bat
+REM 在 cmd 里直接贴字节，空格可有可无
+tools\decode.bat 0a013110012208ac1b00f40300d60d
+
+REM 也接受 MQTTX 那种带空格的格式
+tools\decode.bat 0a 01 31 10 01 22 08 ac 1b 00 f4 03 00 d6 0d
+```
+
+两个细节值得记一下：
+
+- **`.bat` 里不能写中文注释**。cmd.exe 按 GBK 读批处理文件，UTF-8 中文会变成乱码字节，把后面的命令行拆散，报出 `'broker、不用开' 不是内部或外部命令` 这种离谱错误。本文件注释全是 ASCII。
+- **`proto_decode.py` 在 `parse_args` 之前把 `hex` 之后的参数拼成一个字符串**，所以 `0a 01 31` 这种散开的写法也能吃到。否则 `argparse` 会把多出来的 token 当成未知参数直接退出。
+
 ### 12.7 从机模拟器
 
 图形版 Modbus Slave 无法脚本化控制寄存器，因此附带一个 RTU 从机模拟器：
