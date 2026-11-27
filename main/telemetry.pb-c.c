@@ -463,7 +463,7 @@ const ProtobufCMessageDescriptor resp__descriptor =
   (ProtobufCMessageInit) resp__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor metric__field_descriptors[3] =
+static const ProtobufCFieldDescriptor metric__field_descriptors[4] =
 {
   {
     "addr",
@@ -501,16 +501,29 @@ static const ProtobufCFieldDescriptor metric__field_descriptors[3] =
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
+  {
+    "slave",
+    4,
+    PROTOBUF_C_LABEL_NONE,
+    PROTOBUF_C_TYPE_UINT32,
+    0,   /* quantifier_offset */
+    offsetof(Metric, slave),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
 };
 static const unsigned metric__field_indices_by_name[] = {
   0,   /* field[0] = addr */
   1,   /* field[1] = raw */
+  3,   /* field[3] = slave */
   2,   /* field[2] = value */
 };
 static const ProtobufCIntRange metric__number_ranges[1 + 1] =
 {
   { 1, 0 },
-  { 0, 3 }
+  { 0, 4 }
 };
 const ProtobufCMessageDescriptor metric__descriptor =
 {
@@ -520,7 +533,7 @@ const ProtobufCMessageDescriptor metric__descriptor =
   "Metric",
   "",
   sizeof(Metric),
-  3,
+  4,
   metric__field_descriptors,
   metric__field_indices_by_name,
   1,  metric__number_ranges,

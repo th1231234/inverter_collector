@@ -121,7 +121,7 @@ bool codec_encode_telemetry(uint32_t seq, int32_t state,
                             const codec_metric_t *pts, int n_metrics,
                             uint8_t **out, size_t *out_len)
 {
-    if (pts == NULL || n_metrics <= 0 || n_metrics > CODEC_MAX_READ_NUM) {
+    if (pts == NULL || n_metrics <= 0 || n_metrics > CODEC_MAX_METRICS) {
         ESP_LOGE(TAG, "invalid metrics arg: n=%d", n_metrics);
         return false;
     }
@@ -141,6 +141,7 @@ bool codec_encode_telemetry(uint32_t seq, int32_t state,
 
     for (int i = 0; i < n_metrics; i++) {
         metric__init(&metrics[i]);
+        metrics[i].slave = pts[i].slave;
         metrics[i].addr  = pts[i].addr;
         metrics[i].raw   = pts[i].raw;
         metrics[i].value = pts[i].value;
