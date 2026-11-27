@@ -14,6 +14,7 @@
 用法：
     python tools/modbus_multi_sim.py COM10 9600
     python tools/modbus_multi_sim.py COM10 9600 --verbose
+    python tools/modbus_multi_sim.py COM10 9600 --only 1,2    # 让 3 号"掉线"，验证单台故障
     python tools/modbus_multi_sim.py --selftest          # 不需要串口，跑单元自测
 
 支持的功能码：
@@ -45,6 +46,18 @@ for _sid, _pts in SLAVE_DEFAULTS.items():
     _bank = {BASE_ADDR + i: 0 for i in range(REG_COUNT)}
     _bank.update(_pts)
     REGISTERS[_sid] = _bank
+
+
+def apply_only_filter(only) -> None:
+    """--only 1,2：把不在名单里的从机从寄存器表里删掉。
+
+    删掉之后它对任何帧都沉默（走 handle_frame 里 "slave not in REGISTERS"
+    那个分支），效果等价于"这台从机掉线/断电/没接线"。
+    用来验证固件的单台故障处理：其余从机照常读数，掉线那台保留上次的值。
+    """
+    for sid in list(REGISTERS):
+        if sid not in only:
+            del REGISTERS[sid]
 
 
 def crc16(data: bytes) -> int:
@@ -282,6 +295,16 @@ def main() -> int:
         return 2
     port = args[0]
     baud = int(args[1]) if len(args) > 1 and not args[1].startswith("-") else 9600
+
+    # --only 1,2 ：只让指定的站号应答，其余当成掉线（故障注入用）
+    only = None
+    if "--only" in args:
+        idx = args.index("--only")
+        if idx + 1 < len(args):
+            only = {int(x) for x in args[idx + 1].split(",") if x.strip()}
+    if only:
+        apply_only_filter(only)
+
     return run(port, baud, verbose=("--verbose" in args or "-v" in args))
 
 

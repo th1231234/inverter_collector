@@ -80,8 +80,20 @@ def show_telemetry(raw: bytes) -> bool:
     print("[data] device=%s seq=%d state=%d  (%d 字节)" %
           (t.device_id, t.seq, t.state, len(raw)))
     print("       ts_ms=%d -> %s" % (t.ts_ms, ts_note))
+
+    # 多从机：一帧里混着好几台设备的测点，按站号分组打印，
+    # 这样 9 个测点不会糊成一片，能一眼看出"哪台从机读到什么"。
+    slaves = []
     for m in t.metrics:
-        print("       addr=0x%04X raw=%d value=%.2f" % (m.addr, m.raw, m.value))
+        if m.slave not in slaves:
+            slaves.append(m.slave)
+
+    for s in slaves:
+        group = [m for m in t.metrics if m.slave == s]
+        print("       slave %-3d (%d 个测点)" % (s, len(group)))
+        for m in group:
+            print("         addr=0x%04X raw=%d value=%.2f" %
+                  (m.addr, m.raw, m.value))
 
     # 完整性自检：重新序列化应与收到的字节完全一致
     again = t.SerializeToString()

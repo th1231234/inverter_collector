@@ -136,6 +136,8 @@ idf.py -p COM8 monitor        # 退出：Ctrl + ]
 4. `Setup → Slave Definition`：Address mode 选 **Hex**，Address 填 `3000`，Quantity 填 `10`；Slave ID = `1`，Function = `03`
 5. 双击寄存器格子写入预设值：`3000` → `3500`、`3002` → `500`、`3004` → `1750`
 
+> 以上是**单从机**（阶段一/二）的配置。多从机验证见 12.8：Modbus Slave 一个实例只能扮一个站号，三台要改用 `tools/modbus_multi_sim.py`（一条串口同时扮 1/2/3 号）。
+
 ### 6.2 上报接收侧（电脑）
 
 先确认 `menuconfig` 里选的是哪种协议，再启动对应的接收端：
@@ -433,7 +435,8 @@ inverter_collector/
 │   ├── boot_run.py             软复位 + 抓启动日志
 │   ├── proto_decode.py         protobuf 收发与解析（阶段三验证用）
 │   ├── telemetry_pb2.py        由 proto 生成的 Python 绑定
-│   ├── modbus_slave_sim.py     Modbus RTU 从机模拟器（03/06，脚本化控制寄存器）
+│   ├── modbus_slave_sim.py     Modbus RTU 从机模拟器（03/06，单站号）
+│   ├── modbus_multi_sim.py     多站号模拟器（一条串口扮演 1/2/3，支持 --only 故障注入）
 │   └── mqtt_lab/               本地 MQTT 实验台
 │       ├── broker.yaml         amqtt Broker 配置（0.0.0.0:1883 匿名）
 │       ├── lab_sub.py          订阅端
@@ -539,7 +542,7 @@ protoc-gen-c  : D:\work\tools\protoc-c\extracted\mingw64\bin\protoc-gen-c.exe
 | `dev/<工号>/read` | 下行 | `ReadRequest` | `req_id`, `slave`, `addr`, `num` |
 | `dev/<工号>/write` | 下行 | `WriteRequest` | `req_id`, `slave`, `addr`, `value` |
 | `dev/<工号>/resp` | 上行 | `Resp` | `req_id`, `ok`, `msg`, `values` |
-| `dev/<工号>/data` | 上行 | `Telemetry` | `device_id`, `seq`, `ts_ms`, `state`, `metrics`（`addr`/`raw`/`value`） |
+| `dev/<工号>/data` | 上行 | `Telemetry` | `device_id`, `seq`, `ts_ms`, `state`, `metrics`（`slave`/`addr`/`raw`/`value`） |
 
 字段号规划原则：`req_id` 永远占字段 1，四份 message 保持一致；其余按使用频率排在 2~5，全部落在 1~15 区间内，每个字段号只占 1 字节 tag。发布后字段号不可改、不可复用。
 
@@ -557,7 +560,10 @@ inverter_coll. ──┘         （封装层）
 2. 用 `strlen` 量二进制长度 —— 长度一律用 `pack` 返回的真实字节数；
 3. 先 `unpack` 后判长度 —— `precheck()` 在 `unpack` 之前拦掉空包和超长包。
 
-### 12.5 实测结果（本机，从机模拟器 0x3000=3500 / 0x3002=500 / 0x3004=1750）
+### 12.5 实测结果（阶段三，单从机：模拟器 0x3000=3500 / 0x3002=500 / 0x3004=1750）
+
+> 这一节的数据录于 `stage3-final` 那个版本（`Metric` 还没有 `slave` 字段，一帧 58 字节）。
+> 多从机扩展之后的帧格式与实测见 12.7。
 
 周期上报（P-02 / P-03）：
 
@@ -649,11 +655,167 @@ tools\decode.bat 0a 01 31 10 01 22 08 ac 1b 00 f4 03 00 d6 0d
 
 ### 12.7 从机模拟器
 
-图形版 Modbus Slave 无法脚本化控制寄存器，因此附带一个 RTU 从机模拟器：
+图形版 Modbus Slave 无法脚本化控制寄存器，因此附带两个 RTU 从机模拟器。
+
+单从机版（阶段一/二验证用，只应答一个站号）：
 
 ```bash
 python tools/modbus_slave_sim.py COM10 9600 1
 python tools/modbus_slave_sim.py COM10 9600 1 0x3000=3000 0x3004=0
 ```
 
-支持功能码 `03`（读保持寄存器）和 `06`（写单个寄存器），其它功能码回异常码 `01`，地址越界回 `02`。板子发来的写命令会直接改模拟器里的值，下一帧 `data` 立即反映。
+多从机版（一条串口上同时扮演多个站号，12.8 用这个）：
+
+```bash
+python tools/modbus_multi_sim.py COM10 9600 --verbose
+```
+
+多从机版内置三台从机的默认值，三者数值不同，便于一眼看出串台：
+
+| 站号 | 0x3000 | 0x3002 | 0x3004 | 换算后 |
+|---|---|---|---|---|
+| 1 | 3500 | 500 | 1750 | 350.0V / 5.00A / 1750W |
+| 2 | 4000 | 600 | 2000 | 400.0V / 6.00A / 2000W |
+| 3 | 2200 | 300 | 660 | 220.0V / 3.00A / 660W |
+
+两者都支持功能码 `03`（读保持寄存器）、`06`（写单个寄存器）、`10`（写多个寄存器），其它功能码回异常码 `01`，地址越界回 `02`，数量非法回 `03`。**站号不匹配时完全沉默**——这是 Modbus 的规定，不是模拟器的偷懒：如果从机对不属于自己的帧也应答，总线上多个从机会同时开口，数据就撞成乱码了。板子发来的写命令会直接改模拟器里的值，下一帧 `data` 立即反映。
+
+`modbus_multi_sim.py` 带 9 项离线自检（`python tools/modbus_multi_sim.py --selftest`），不接硬件也能验证 CRC、异常码、站号隔离、写后读回：
+
+```text
+站号1 读 5 个          PASS  01 03 0a 0d ac 00 00 01 f4 00 00 06 d6 2a 71
+站号2 读 5 个          PASS  02 03 0a 0f a0 00 00 02 58 00 00 07 d0 ca c1
+站号3 读 5 个          PASS  03 03 0a 08 98 00 00 01 2c 00 00 02 94 f9 00
+站号 9 读             PASS  无应答
+站号1 读 0x3050       PASS  01 83 02 c0 f1
+站号1 功能码 0x04       PASS  01 84 01 82 c0
+CRC 损坏             PASS  无应答
+站号2 写后读回           PASS  读回 4000
+站号隔离               PASS  站号1=3100 站号2=4000
+全部通过
+```
+
+### 12.8 多从机扩展（阶段三之后）
+
+#### 12.8.1 为什么要改
+
+阶段三的固件只会读一个站号：`inverter_collector.c` 里 `modbus_read_registers(REG_BASE, REG_COUNT, regs)` 内部写死 `slave = 1`。而现场一条 RS-485 总线并多台逆变器是常态，考核题目本身也允许扩展。
+
+改之前先给阶段三的成果打了 tag `stage3-final`，这样「三阶段完成版」和「多从机扩展版」两个状态都在仓库里，答辩时都能演示。
+
+#### 12.8.2 协议改动：`Metric` 加一个字段
+
+```proto
+message Metric {
+  uint32 addr  = 1;
+  uint32 raw   = 2;
+  float  value = 3;
+  uint32 slave = 4;   // 新增
+}
+```
+
+`Telemetry` 结构一个字没动，`metrics` 仍然是平铺列表。两个考虑：
+
+- **一帧发完所有从机**。如果改成「每台从机发一帧」，上位机收到的 3 帧时间上错开几秒，就不是同一时刻的整机快照了。现在一帧 154 字节装 9 个测点，语义上是一张照片。
+- **旧解析器不会崩**。protobuf 规定「不认识的字段号直接跳过」。拿 `stage3-final` 那个版本的 `telemetry_pb2.py` 解新报文，能正常解出前 3 个字段，只是看不到 `slave`。这就是为什么加字段比改字段安全——**改字段号是灾难，加字段号是兼容**。
+
+**站号从 1 开始这一点很关键**：proto3 里等于默认值（0）的字段不写进字节流。如果站号可能为 0，就会出现「字段被省略 → 上位机读成 0 号从机」。Modbus 规定站号 1~247，天然避开这个坑。
+
+#### 12.8.3 固件改动
+
+`inverter_collector.c` 里新增一张从机拓扑表，加一台从机就加一行：
+
+```c
+static const slave_cfg_t s_slaves[] = {
+    { 1, REG_BASE, REG_COUNT },
+    { 2, REG_BASE, REG_COUNT },
+    { 3, REG_BASE, REG_COUNT },
+};
+```
+
+采集循环从一个 `modbus_read_registers()` 变成遍历这张表，每台单独读、分别填自己那一段测点：
+
+```c
+for (int s = 0; s < SLAVE_COUNT; s++) {
+    const slave_cfg_t *cfg  = &s_slaves[s];
+    const int          base = s * POINT_PER_SLAVE;
+    if (modbus_read_holding(cfg->slave, cfg->reg_base, cfg->reg_count, regs)) {
+        fill_points(cfg->slave, regs, pts, base);
+    }
+}
+```
+
+顺带把「地址 / 下标 / 换算系数」三张平行数组合并成一张 `point_cfg_t` 结构体数组。原来三个数组靠下标隐式对应，加站号后字段变四个，很容易改错一个漏改三个，编译器也查不出来。
+
+#### 12.8.4 `state` 的多从机语义
+
+| 情况 | `state` | 数据 |
+|---|---|---|
+| 3 台全读到 | `0` | 9 个测点全是新值 |
+| 1 台掉线 | `1` | 掉线那台保留上次的值，其余是新值 |
+| 3 台全掉线 | `1` | 9 个测点全是上次的值 |
+| 从没成功过 | 不上报 | 没有可用数据，`has_snapshot` 为 false |
+
+**「配置了几台就要几台全读到才算正常」** 是这里的判断依据：少一台就是真故障，不是「差不多能用」。掉线那台保留旧值是刻意的——`state=1` 已经告诉上位机「这批数里有过期的」，比直接把值填 0 更安全（填 0 会被当成「电压真的是 0V」）。
+
+#### 12.8.5 实测
+
+三台全在线（`state=0`，154 字节）：
+
+```text
+[data] device=intern01 seq=2 state=0  (154 字节)
+       ts_ms=1795744527515 -> 2026-11-27 09:55:27
+       slave 1   (3 个测点)
+         addr=0x3000 raw=3500 value=350.00
+         addr=0x3002 raw=500 value=5.00
+         addr=0x3004 raw=1750 value=1750.00
+       slave 2   (3 个测点)
+         addr=0x3000 raw=4000 value=400.00
+         addr=0x3002 raw=600 value=6.00
+         addr=0x3004 raw=2000 value=2000.00
+       slave 3   (3 个测点)
+         addr=0x3000 raw=2200 value=220.00
+         addr=0x3002 raw=300 value=3.00
+         addr=0x3004 raw=660 value=660.00
+       完整性 OK（重新序列化 154 字节，逐字节一致）
+```
+
+让 3 号掉线（`python tools/modbus_multi_sim.py COM10 9600 --only 1,2`），156 字节、`state=1`：
+
+```text
+[data] device=intern01 seq=13 state=1  (156 字节)
+       slave 1   addr=0x3000 raw=3500 value=350.00     # 新值
+       slave 2   addr=0x3000 raw=4000 value=400.00     # 新值
+       slave 3   addr=0x3000 raw=2200 value=220.00     # 上次缓存，已过期
+       完整性 OK（重新序列化 156 字节，逐字节一致）
+```
+
+**帧长为什么从 154 变成 156**：多出的 2 字节正是 `state=1` 编码进去的结果（`20 01` = tag 0x20 + 值 1）。`state=0` 是 proto3 默认值，不占字节。这也是「为什么帧长会跳变」的答案——不是协议不稳定，是默认值不编码。
+
+板子侧的日志变成每台从机一行：
+
+```text
+I (5000) MAIN: slave 1   raw 0x3000=0x0DAC 0x3002=0x01F4 0x3004=0x06D6 | 350.0V 5.00A 1750W
+I (5000) MAIN: slave 2   raw 0x3000=0x0FA0 0x3002=0x0258 0x3004=0x07D0 | 400.0V 6.00A 2000W
+I (5000) MAIN: slave 3   raw 0x3000=0x0898 0x3002=0x012C 0x3004=0x0294 | 220.0V 3.00A 660W
+I (5000) MAIN: Stats: slave 3/3 ok, state=0, read ok=3 err=0
+```
+
+#### 12.8.6 时序开销
+
+| 场景 | 单周期耗时 | 占 5000 ms 周期 |
+|---|---|---|
+| 3 台全应答 | 3 × 24 ms ≈ 72 ms | 1.4% |
+| 3 台全超时 | 3 × (200×3 + 20×2) ≈ 1920 ms | 38% |
+
+全部超时时一个周期要 1.9 秒，这是「站号不匹配的从机完全沉默、只能靠超时判断」的必然代价。仍在 5 秒周期内，不影响节拍。
+
+#### 12.8.7 退回单从机
+
+不用改代码逻辑，把 `s_slaves[]` 里 2 号、3 号两行注释掉重编即可，`state` 就会永远回到 0，和阶段一行为完全一致。
+
+如果需要保留三台配置、只是临时让某台「掉线」，用模拟器的 `--only`：
+
+```bash
+python tools/modbus_multi_sim.py COM10 9600 --verbose --only 1,2
+```
