@@ -420,10 +420,20 @@ hr { border: none; border-top: 1px solid var(--border); margin: 30px 0; }
 <p>热点一关，这个地址就消失，板子会表现为「一直重连但 PC 上 EMQX 明明在跑」。</p>
 </blockquote>
 <h3 id="②-起-emqx">② 起 EMQX</h3>
-<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code><span style="color: #007020; font-weight: bold">cd</span> /d D:\work\MQTT\emqx-5.2.1-windows-amd64\bin
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>:<span style="color: #60A0B0; font-style: italic">: cmd.exe 里</span>
+<span style="color: #007020; font-weight: bold">cd</span> /d D:\work\MQTT\emqx-5.2.1-windows-amd64\bin
 emqx.cmd console
 </code></pre></div>
 
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code><span style="color: #60A0B0; font-style: italic"># PowerShell 里（cd 是 Set-Location 的别名，不认 /d）</span>
+D:\work\MQTT\emqx-5.2.1-windows-amd64\bin\emqx.cmd console
+</code></pre></div>
+
+<blockquote>
+<p>⚠️ 两个语法不通用：<code>cd /d</code> 只属于 cmd.exe。在 PowerShell 里写 <code>cd /d ...</code> 会报
+<code>找不到接受实际参数"...\bin"的位置形式参数</code>；而 <code>emqx.cmd console</code> 不带 <code>.\</code> 或完整路径，
+会报 <code>无法将"emqx.cmd"项识别为 cmdlet</code> —— PowerShell 不搜索当前目录。</p>
+</blockquote>
 <ul>
 <li><strong>必须用 <code>console</code>，不要用 <code>start</code></strong>。<code>start</code> 分支是 <code>start werl</code> 开新窗口，从 PowerShell / 后台调用会静默失败</li>
 <li><code>console</code> 是前台运行，这个窗口<strong>不能关</strong>，关了 broker 就停了</li>

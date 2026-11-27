@@ -102,9 +102,19 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
 ### ② 起 EMQX
 
 ```bat
+:: cmd.exe 里
 cd /d D:\work\MQTT\emqx-5.2.1-windows-amd64\bin
 emqx.cmd console
 ```
+
+```powershell
+# PowerShell 里（cd 是 Set-Location 的别名，不认 /d）
+D:\work\MQTT\emqx-5.2.1-windows-amd64\bin\emqx.cmd console
+```
+
+> ⚠️ 两个语法不通用：`cd /d` 只属于 cmd.exe。在 PowerShell 里写 `cd /d ...` 会报
+> `找不到接受实际参数"...\bin"的位置形式参数`；而 `emqx.cmd console` 不带 `.\` 或完整路径，
+> 会报 `无法将"emqx.cmd"项识别为 cmdlet` —— PowerShell 不搜索当前目录。
 
 - **必须用 `console`，不要用 `start`**。`start` 分支是 `start werl` 开新窗口，从 PowerShell / 后台调用会静默失败
 - `console` 是前台运行，这个窗口**不能关**，关了 broker 就停了
